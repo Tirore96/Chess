@@ -263,8 +263,7 @@ def algebraic_to_arr_indices(s):
     move = [x_1_alg,y_1_alg,x_2_alg,y_2_alg]
     return move
 
-#responisble for modifying chess board, uses eval_pseudo_legal_move() to if move is legal
-def try_move(board,move,rights,player,king_pos,player_positions,chess_status,move_format="alg"):
+def make_move(board,move,rights,player,king_pos,player_positions,chess_status,move_format="alg"):
     if move_format == "alg":
         move = algebraic_to_arr_indices(move)
     x_1_alg,y_1_alg,x_2_alg,y_2_alg = move
@@ -272,13 +271,12 @@ def try_move(board,move,rights,player,king_pos,player_positions,chess_status,mov
     cur_rights = copy.deepcopy(rights[-1])
     cur_king_pos = copy.deepcopy(king_pos[-1])
     cur_player_positions = copy.deepcopy(player_positions[-1])
-#cpdef c_eval_pseudo_legal_move(board,move,
-#                               rights,player_mover,player_positions)
-    legal_move,status,cur_rights = c_eval_pseudo_legal_move(cur_board,move,cur_rights,player,cur_player_positions)
+
+    legal_move,status,cur_rights,now_in_chess = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])
     player_index = 0 if player == 1 else 1
     enemy_index = 1 if player == 1 else 0
     if legal_move:
-        index = cur_board[x_1_alg,y_1_alg]
+        index = cur_board[x_1_alg,y_1_alg]#c_get_from_square_index(x_1_alg,y_1_alg,cur_board)
         piece = pieces[index]
         aux_move = []
         capture = piece_owner[cur_board[x_2_alg,y_2_alg]] == -player
@@ -296,60 +294,69 @@ def try_move(board,move,rights,player,king_pos,player_positions,chess_status,mov
             if aux_move[2] == -1:
                 #en-passant attack
                 pos_remove = [aux_move[0],aux_move[1]]
+               # print("remove",pos_remove)
             
-                cur_player_positions[enemy_index].remove(pos_remove)
+                #cur_player_positions[enemy_index].remove(pos_remove)
             else:
                 pos_before = aux_move[0:2]
                 pos_after = aux_move[2:4]
+               # print("remove",pos_before)
+               # print("append",pos_after)
 
-                cur_player_positions[player_index].remove(pos_before)
+                #cur_player_positions[player_index].remove(pos_before)
                 cur_player_positions[player_index].append(pos_after)
         original_move_before = move[0:2]
         original_move_after = move[2:4]  
-        cur_player_positions[player_index].remove([x_1_alg,y_1_alg])#(original_move_before)
+        #print("remove",original_move_before)
+        #print("append",original_move_after)
+        try:
+            cur_player_positions[player_index].remove([x_1_alg,y_1_alg])#(original_move_before)
+        except:
+            print(original_move_before)
+            print(player_positions[-1][player_index])
+          #  print(player_positions[-2][player_index])
+            print(player_index)
+
+
 
         cur_player_positions[player_index].append(([x_2_alg,y_2_alg]))    
+        
+#        if capture:
+#            #enemy lost a player
+#            cur_player_positions[enemy_index].remove(([x_2_alg,y_2_alg]))    
+
+
         
         board.append(cur_board)
         rights.append(cur_rights)
         king_pos.append(cur_king_pos)
         player_positions.append(cur_player_positions)
-        chess_status.append(False)
+        chess_status.append(now_in_chess)
     else:
-#        print("did note make move")
-        return False,board,status,rights,player,king_pos,player_positions,chess_status
-    return True,board,status,rights,-player,king_pos,player_positions,chess_status
+        print("did note make move")
+        return board,status,rights,player,king_pos,player_positions,chess_status
+    return board,status,rights,-player,king_pos,player_positions,chess_status
 
-def make_move(board,move,rights,player,king_pos,player_positions,chess_status,move_format="alg"):
-    legal,board,status,rights,player,king_pos,player_positions,chess_status = try_move(board,move,rights,player,king_pos,player_positions,chess_status,move_format)
-    if not legal:
-        return False,board,status,rights,player,king_pos,player_positions,chess_status
-#    cur_board = copy.deepcopy(board[-1])
-#    cur_rights = copy.deepcopy(rights[-1])
-#    cur_king_pos = copy.deepcopy(king_pos[-1])
-#    cur_player_positions = copy.deepcopy(player_positions[-1])
-#    cur_chess_status = chess_status[-1]
-    king_is_now_in_chess = is_king_now_in_chess(board[-1],rights[-1],king_pos[-1],player,player_positions[-1],chess_status[-1])#cur_board,cur_rights,cur_king_pos,player,cur_player_positions,chess_status)
-    if king_is_now_in_chess:
-        board,status,rights,player,king_pos,player_positions,chess_status = unmake_move(board,rights,player,king_pos,player_positions,chess_status)
-        return False, board,status,rights,player,king_pos,player_positions,chess_status
-    else:
-        return True, board,status,rights,player,king_pos,player_positions,chess_status
-
+def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status):
+    #deep copy
+    cur_board = copy.copy(board[-1])
+    cur_rights = copy.copy(rights[-1])
+    cur_king_pos = copy.copy(king_pos[-1])
+    #Remember
+    legal_move,status,rights_new = c_eval_pseudo_legal_move(cur_board,move,cur_rights,player,player_positions[-1])
+    king_is_now_in_chess = is_king_now_in_chess(board,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status)
+    retval = legal_move and not king_is_now_in_chess
+    return retval,status,rights_new,king_is_now_in_chess
 
 
 def generate_all_legal_moves(board,rights,player,king_pos,player_positions,chess_status,all_moves):
 
     all_legal_moves = []
     for i in all_moves:
-        legal,_,_,_,_,_,_,_ = make_move(board,i,rights,player,king_pos,player_positions,chess_status,move_format = "int array")
+        legal,_,_,_ = eval_legal_move(board,i,rights,player,king_pos,player_positions,chess_status)
         if legal:
             algebraic_move = arr_to_algebraic(i)
             all_legal_moves.append(algebraic_move)
-            #unmake_move(board,rights,player,king_pos,player_positions,chess_status)
-
-
-    
     return all_legal_moves
 
 def arr_to_algebraic(arr):
@@ -409,11 +416,18 @@ def move_pawn(cur_board,move,status,player):
     cur_board[x_1_alg,y_1_alg] = 0 
     return cur_board,aux_move
 
-def is_king_now_in_chess(cur_board,cur_rights,cur_king_pos,player,cur_player_positions,chess_status):
+def is_king_now_in_chess(board,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status):
+    #pdb.set_trace()
     king_index = 0 if player == 1 else 1
-    king_arr = [cur_king_pos[king_index]]
+       
+   # if len(king_pos) > 1:
+   #     #pdb.set_trace()
+   #     king_in_chess_before = c_check_if_squares_attackable(board[-1],player,[king_pos[-1][king_index]],rights[-1],player_positions[-1])
+   # else:
+   #     king_in_chess_before = False
     king_in_chess_before = chess_status
-    king_in_chess_now = c_check_if_squares_attackable(cur_board,player,king_arr,cur_rights,cur_player_positions)
+    king_arr = [cur_king_pos[king_index]]
+    king_in_chess_now = c_check_if_squares_attackable(cur_board,player,king_arr,cur_rights,player_positions[-1])
     if king_in_chess_now and not king_in_chess_before:
         return True
     else:
