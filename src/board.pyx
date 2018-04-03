@@ -8,6 +8,13 @@ import sys
 
 all_squares = [[i,j] for i in range(8) for j in range(8)]
 all_moves = [i+j for i in all_squares for j in all_squares]
+zero_arr = np.array([[0 for i in range(8)] for j in range(8)])
+one_arr = [[1 for i in range(8)] for j in range(8)]
+
+    
+    
+    
+
 #from numpy cimport ndarray
 #cimport numpy as np_c
 pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
@@ -48,6 +55,30 @@ x_algebraic = {"8": 0,"7": 1,"6": 2,"5": 3,"4": 4,"3": 5,"2": 6,"1": 7}
 y_algebraic = {"a": 0,"b": 1,"c": 2,"d": 3,"e": 4,"f": 5,"g": 6,"h": 7}
 algebraic_vertical = ['8','7','6','5','4','3','2','1']
 algebraic_horisontal = ['a','b','c','d','e','f','g','h']
+
+def gen_all_possible_moves(all_moves):
+    players = [-1,1]
+    remove = []
+    for i in all_moves:
+        x_1,y_1,x_2,y_2 = i
+        cp = copy.deepcopy(zero_arr)
+        global_keep = False
+        for j in range(1,7):
+            cp[x_1,y_1] = j
+            for k in players:
+                keep = c_eval_pseudo_legal_move(cp,i,
+                               one_arr,k,[[[]],[[]]])
+                if keep:
+                    global_keep = True
+                    break
+        if not global_keep:
+            remove.append(i)
+    for i in remove:
+        all_moves.remove(i)
+    return all_moves
+            
+all_moves = gen_all_possible_moves(all_moves)
+
 cpdef c_check_if_squares_attackable(np_c.ndarray[long,ndim=2] board, long player,list sensitive_squares,
                                    np_c.ndarray[long,ndim=2] rights,list player_positions):
     cpdef long enemy_index = 1 if player == 1 else 0
@@ -344,9 +375,9 @@ def update_king_pos(king_pos,player,x,y):
 
 def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status):
     #deep copy
-    cur_board = copy.copy(board[-1])
-    cur_rights = copy.copy(rights[-1])
-    cur_king_pos = copy.copy(king_pos[-1])
+    cur_board = board[-1]
+    cur_rights = rights[-1]
+    cur_king_pos = king_pos[-1]
     #Remember
     legal_move,status,rights_new = c_eval_pseudo_legal_move(cur_board,move,cur_rights,player,player_positions[-1])
     #if move is not legal, don't check if the king is in chess.
@@ -357,16 +388,22 @@ def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_sta
     return retval,status,rights_new,king_is_now_in_chess
 
 
-def generate_all_legal_moves(board,rights,player,king_pos,player_positions,chess_status,all_moves):
+cpdef generate_all_legal_moves(list board,list rights,long player,list king_pos, list player_positions,list chess_status,list all_moves):
 
-    all_legal_moves = []
-    for i in all_moves:
-            
-        legal,_,_,_ = eval_legal_move(board,i,rights,player,king_pos,player_positions,chess_status[-1])
+    cpdef list all_legal_moves = []
+    cpdef int all_moves_len = len(all_moves)
+    cpdef int i
+    cpdef int legal
+    cpdef str algebraic_move
+    cpdef list move
+    for i in range(all_moves_len):
+        move = all_moves[i]
+        legal,_,_,_ = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])
         if legal:
-            algebraic_move = arr_to_algebraic(i)
+            algebraic_move = arr_to_algebraic(move)
             all_legal_moves.append(algebraic_move)
     return all_legal_moves
+
 
 def arr_to_algebraic(arr):
     x_1,y_1,x_2,y_2 = arr
