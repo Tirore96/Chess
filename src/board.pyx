@@ -60,7 +60,7 @@ cpdef c_check_if_squares_attackable(np_c.ndarray[long,ndim=2] board, long player
     #multi thread?
     for i in range(enemy_len):
         for j in range(sensitive_len):
-            move = enemy_positions[i] + enemy_positions[j]
+            move = enemy_positions[i] + sensitive_squares[j]
             legal,status,_ = c_eval_pseudo_legal_move(board,move,rights,-player,player_positions)
             if legal:
                 return True
@@ -285,7 +285,8 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
             
         elif piece == "King":
             cur_board,aux_move = move_king(cur_board,move,status)
-            cur_king_pos[player_index] = [x_2_alg,y_2_alg]
+            cur_king_pos = update_king_pos(cur_king_pos,player_index,x_2_alg,y_2_alg)
+            #cur_king_pos[player_index] = [x_2_alg,y_2_alg]
         else:
             cur_board[x_2_alg,y_2_alg] = cur_board[x_1_alg,y_1_alg]
             cur_board[x_1_alg,y_1_alg] = 0
@@ -337,6 +338,10 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
         return board,status,rights,player,king_pos,player_positions,chess_status
     return board,status,rights,-player,king_pos,player_positions,chess_status
 
+def update_king_pos(king_pos,player,x,y):
+    king_pos[player] = [x,y]
+    return king_pos
+
 def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status):
     #deep copy
     cur_board = copy.copy(board[-1])
@@ -344,7 +349,10 @@ def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_sta
     cur_king_pos = copy.copy(king_pos[-1])
     #Remember
     legal_move,status,rights_new = c_eval_pseudo_legal_move(cur_board,move,cur_rights,player,player_positions[-1])
-    king_is_now_in_chess = is_king_now_in_chess(board,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status)
+    #if move is not legal, don't check if the king is in chess.
+    if not legal_move:
+        return False,status,rights_new,False
+    king_is_now_in_chess = is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status)
     retval = legal_move and not king_is_now_in_chess
     return retval,status,rights_new,king_is_now_in_chess
 
@@ -353,7 +361,8 @@ def generate_all_legal_moves(board,rights,player,king_pos,player_positions,chess
 
     all_legal_moves = []
     for i in all_moves:
-        legal,_,_,_ = eval_legal_move(board,i,rights,player,king_pos,player_positions,chess_status)
+            
+        legal,_,_,_ = eval_legal_move(board,i,rights,player,king_pos,player_positions,chess_status[-1])
         if legal:
             algebraic_move = arr_to_algebraic(i)
             all_legal_moves.append(algebraic_move)
@@ -416,8 +425,8 @@ def move_pawn(cur_board,move,status,player):
     cur_board[x_1_alg,y_1_alg] = 0 
     return cur_board,aux_move
 
-def is_king_now_in_chess(board,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status):
-    #pdb.set_trace()
+def is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status):
+    x_1,y_1,x_2,y_2 = move
     king_index = 0 if player == 1 else 1
        
    # if len(king_pos) > 1:
@@ -425,9 +434,23 @@ def is_king_now_in_chess(board,rights,king_pos,cur_board,cur_rights,cur_king_pos
    #     king_in_chess_before = c_check_if_squares_attackable(board[-1],player,[king_pos[-1][king_index]],rights[-1],player_positions[-1])
    # else:
    #     king_in_chess_before = False
+    
+    if pieces[cur_board[x_1,y_1]] == "King":
+        cur_king_pos = update_king_pos(cur_king_pos,king_index,x_2,y_2)
+    temp = cur_board[x_2,y_2]
+    #make move
+    cur_board[x_2,y_2] =  cur_board[x_1,y_1]
+    cur_board[x_1,y_1] = 0
+    #missing updating of king_arr
     king_in_chess_before = chess_status
     king_arr = [cur_king_pos[king_index]]
     king_in_chess_now = c_check_if_squares_attackable(cur_board,player,king_arr,cur_rights,player_positions[-1])
+    #restore board
+    cur_board[x_1,y_1] = cur_board[x_2,y_2]
+    cur_board[x_2,y_2] = temp
+    if pieces[cur_board[x_1,y_1]] == "King":
+        cur_king_pos = update_king_pos(cur_king_pos,king_index,x_1,y_1)
+        
     if king_in_chess_now and not king_in_chess_before:
         return True
     else:
