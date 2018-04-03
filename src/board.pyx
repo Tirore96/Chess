@@ -365,7 +365,7 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
         player_positions.append(cur_player_positions)
         chess_status.append(now_in_chess)
     else:
-        print("did note make move")
+        print("did not make move")
         return board,status,rights,player,king_pos,player_positions,chess_status
     return board,status,rights,-player,king_pos,player_positions,chess_status
 
@@ -376,7 +376,7 @@ def update_king_pos(king_pos,player,x,y):
 def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status):
     #deep copy
     cur_board = board[-1]
-    cur_rights = rights[-1]
+    cur_rights = copy.deepcopy(rights[-1])
     cur_king_pos = king_pos[-1]
     #Remember
     legal_move,status,rights_new = c_eval_pseudo_legal_move(cur_board,move,cur_rights,player,player_positions[-1])
