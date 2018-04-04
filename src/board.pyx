@@ -313,18 +313,20 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
     legal_move,status,cur_rights,now_in_chess = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])
     player_index = 0 if player == 1 else 1
     enemy_index = 1 if player == 1 else 0
+    capture_status = []
     if legal_move:
         index = cur_board[x_1_alg,y_1_alg]#c_get_from_square_index(x_1_alg,y_1_alg,cur_board)
         piece = pieces[index]
         aux_move = []
-        capture = piece_owner[cur_board[x_2_alg,y_2_alg]] == -player
+        capture = (piece_owner[cur_board[x_2_alg,y_2_alg]] == -player) or "en-passant" in status
+        if capture:
+            capture_status = [str(player),pieces[cur_board[x_2_alg,y_2_alg]]]
         if piece == "Pawn":
             cur_board,aux_move = move_pawn(cur_board,move,status,player,promotion)
             
         elif piece == "King":
             cur_board,aux_move = move_king(cur_board,move,status)
             cur_king_pos = update_king_pos(cur_king_pos,player_index,x_2_alg,y_2_alg)
-            #cur_king_pos[player_index] = [x_2_alg,y_2_alg]
         else:
             cur_board[x_2_alg,y_2_alg] = cur_board[x_1_alg,y_1_alg]
             cur_board[x_1_alg,y_1_alg] = 0
@@ -373,8 +375,8 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
         chess_status.append(now_in_chess)
     else:
         print("did not make move")
-        return board,status,rights,player,king_pos,player_positions,chess_status
-    return board,status,rights,-player,king_pos,player_positions,chess_status
+        return board,status,rights,player,king_pos,player_positions,chess_status,capture_status
+    return board,status,rights,-player,king_pos,player_positions,chess_status,capture_status
 
 def update_king_pos(king_pos,player,x,y):
     king_pos[player] = [x,y]
