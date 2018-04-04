@@ -18,7 +18,7 @@ one_arr = [[1 for i in range(8)] for j in range(8)]
 #from numpy cimport ndarray
 #cimport numpy as np_c
 pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
-
+promotions = {'r':1,'k':2,'b':3,'q':4}
 piece_owner = [0,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1]
 list_letters = ['a','b','c','d','e','f','g','h']
 list_numbers = list(map(str,list((range(1,9)))))
@@ -295,8 +295,15 @@ def algebraic_to_arr_indices(s):
     return move
 
 def make_move(board,move,rights,player,king_pos,player_positions,chess_status,move_format="alg"):
+    has_promotion = len(move) == 5
+    promotion = ""
+    if has_promotion:
+        promotion = move[4] 
     if move_format == "alg":
+        if has_promotion:
+            move = move.replace(promotion,"")
         move = algebraic_to_arr_indices(move)
+        
     x_1_alg,y_1_alg,x_2_alg,y_2_alg = move
     cur_board = copy.deepcopy(board[-1])
     cur_rights = copy.deepcopy(rights[-1])
@@ -312,7 +319,7 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
         aux_move = []
         capture = piece_owner[cur_board[x_2_alg,y_2_alg]] == -player
         if piece == "Pawn":
-            cur_board,aux_move = move_pawn(cur_board,move,status,player)
+            cur_board,aux_move = move_pawn(cur_board,move,status,player,promotion)
             
         elif piece == "King":
             cur_board,aux_move = move_king(cur_board,move,status)
@@ -449,16 +456,23 @@ def move_king(cur_board,move,status):
     return cur_board,aux_move
         
     
-def move_pawn(cur_board,move,status,player):
+def move_pawn(cur_board,move,status,player,promotion):
     x_1_alg,y_1_alg,x_2_alg,y_2_alg = move
     aux_move = []
+    promotable_position = x_2_alg == 7 if player == 1 else x_2_alg == 0
     #remove enemy from enpassant
     if "en-passant" in status:
         cur_board[x_2_alg-player,y_2_alg] = 0
         aux_move = [x_2_alg-player,y_2_alg,-1,-1]
 
 
-    cur_board[x_2_alg,y_2_alg] = cur_board[x_1_alg,y_1_alg]
+    if promotable_position:
+        if promotion == "":
+            promotion = "q"
+        piece = promotions[promotion] * player
+    else:
+        piece = cur_board[x_1_alg,y_1_alg]
+    cur_board[x_2_alg,y_2_alg] = piece
     cur_board[x_1_alg,y_1_alg] = 0 
     return cur_board,aux_move
 
