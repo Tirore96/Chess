@@ -453,7 +453,7 @@ def move_pawn(cur_board,move,status,player):
     x_1_alg,y_1_alg,x_2_alg,y_2_alg = move
     aux_move = []
     #remove enemy from enpassant
-    if "en-passant" == status:
+    if "en-passant" in status:
         cur_board[x_2_alg-player,y_2_alg] = 0
         aux_move = [x_2_alg-player,y_2_alg,-1,-1]
 
