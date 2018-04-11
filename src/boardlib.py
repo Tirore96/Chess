@@ -56,38 +56,14 @@ y_algebraic = {"a": 0,"b": 1,"c": 2,"d": 3,"e": 4,"f": 5,"g": 6,"h": 7}
 algebraic_vertical = ['8','7','6','5','4','3','2','1']
 algebraic_horisontal = ['a','b','c','d','e','f','g','h']
 
-def gen_all_possible_moves(all_moves):
-    players = [-1,1]
-    remove = []
-    for i in all_moves:
-        x_1,y_1,x_2,y_2 = i
-        cp = copy.deepcopy(zero_arr)
-        global_keep = False
-        for j in range(1,7):
-            cp[x_1,y_1] = j
-            for k in players:
-                keep = c_eval_pseudo_legal_move(cp,i,
-                               one_arr,k,[[[]],[[]]])
-                if keep:
-                    global_keep = True
-                    break
-        if not global_keep:
-            remove.append(i)
-    for i in remove:
-        all_moves.remove(i)
-    return all_moves
-            
-all_moves = gen_all_possible_moves(all_moves)
 
-cpdef c_check_if_squares_attackable(np_c.ndarray[long,ndim=2] board, long player,list sensitive_squares,
-                                   np_c.ndarray[long,ndim=2] rights,list player_positions):
-    cpdef long enemy_index = 1 if player == 1 else 0
-    cpdef list enemy_positions = player_positions[enemy_index]
-    cpdef int i,j,legal
-    cpdef int enemy_len = len(enemy_positions)
-    cpdef int sensitive_len = len(sensitive_squares)
-    cpdef list move
-    cpdef str status
+
+def c_check_if_squares_attackable(board, player,sensitive_squares,
+                                    rights,player_positions):
+    enemy_index = 1 if player == 1 else 0
+    enemy_positions = player_positions[enemy_index]
+    enemy_len = len(enemy_positions)
+    sensitive_len = len(sensitive_squares)
     #multi thread?
     for i in range(enemy_len):
         for j in range(sensitive_len):
@@ -175,7 +151,6 @@ def c_eval_pawn_move(board,move,direction,player,rights):
             if (x_1 == 4 and player == 1) or (x_1 == 3 and player == -1):
                 piece = pieces[board[x_2-player,y_2]]#c_get_from_square_piece(x_2-player,y_2)
 
-                print(piece == "Pawn" and rights[x_2-player,y_2] == -player)
                 if piece == "Pawn" and rights[x_2-player,y_2] == -player:
                     return True, "pawn_move,en-passant",rights
                 else:
@@ -218,7 +193,7 @@ def c_eval_castling(board,move,direction,rights,player,player_positions):
     rights[x_2,y_2+rook_offset] = 0
     return True,status,rights
         
-cpdef c_eval_pseudo_legal_move(board,move,
+def c_eval_pseudo_legal_move(board,move,
                                rights,player_mover,player_positions):
     #pdb.set_trace()
     x_1,y_1,x_2,y_2 = move
@@ -396,15 +371,33 @@ def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_sta
     retval = legal_move and not king_is_now_in_chess
     return retval,status,rights_new,king_is_now_in_chess
 
+def gen_all_possible_moves(all_moves):
+    players = [-1,1]
+    remove = []
+    for i in all_moves:
+        x_1,y_1,x_2,y_2 = i
+        cp = copy.deepcopy(zero_arr)
+        global_keep = False
+        for j in range(1,7):
+            cp[x_1,y_1] = j
+            for k in players:
+                keep = c_eval_pseudo_legal_move(cp,i,
+                               one_arr,k,[[[]],[[]]])
+                if keep:
+                    global_keep = True
+                    break
+        if not global_keep:
+            remove.append(i)
+    for i in remove:
+        all_moves.remove(i)
+    return all_moves
+            
+all_moves = gen_all_possible_moves(all_moves)
 
-cpdef generate_all_legal_moves(list board,list rights,long player,list king_pos, list player_positions,list chess_status,list all_moves):
+def generate_all_legal_moves(board,rights,player,king_pos, player_positions,chess_status,all_moves):
 
-    cpdef list all_legal_moves = []
-    cpdef int all_moves_len = len(all_moves)
-    cpdef int i
-    cpdef int legal
-    cpdef str algebraic_move
-    cpdef list move
+    all_legal_moves = []
+    all_moves_len = len(all_moves)
     for i in range(all_moves_len):
         move = all_moves[i]
         legal,_,_,_ = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])
@@ -464,7 +457,6 @@ def move_pawn(cur_board,move,status,player,promotion):
     promotable_position = x_2_alg == 7 if player == 1 else x_2_alg == 0
     #remove enemy from enpassant
     if "en-passant" in status:
-        print("went here")
         cur_board[x_2_alg-player,y_2_alg] = 0
         aux_move = [x_2_alg-player,y_2_alg,-1,-1]
 
@@ -505,11 +497,11 @@ def is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_kin
     if pieces[cur_board[x_1,y_1]] == "King":
         cur_king_pos = update_king_pos(cur_king_pos,king_index,x_1,y_1)
         
-    print(king_in_chess_now,king_in_chess_before)
     if king_in_chess_now and not king_in_chess_before:
         return True
     else:
         return False
+
 
 
 
