@@ -1,6 +1,8 @@
 ## Test cell. Here are the functions that test the engine
 import boardclass
 import chess 
+import sys
+from IPython.display import clear_output
 
 def perft(b,depth):
     if depth == 0:
@@ -103,7 +105,7 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
             length = fast_play_count
         for i in range(length):
             b.make_move(moves[i])
-        i = lengh
+        i = length
     else:
         i = 0
         
@@ -183,8 +185,8 @@ def compare_boards_with_moves(moves,moves_long):
         is_equal,status = compare_boards(board_mine.board[-1],board_true)
         if not is_equal:
             status = status + "Previous moves: {0}, reached {1} out of {2}. Move is {3}".format(str(moves[i-lookback:i]),i,length_moves,moves_long[i])
-            return False,status
-    return True,""
+            return False,status,i
+    return True,"",-1
 
 def compare_boards(board_mine,board_true):
     for i in range(8):
@@ -193,6 +195,10 @@ def compare_boards(board_mine,board_true):
             index_true = index_into_python_board(board_true,i,j)
             square_true = boardclass.true_board_to_my_board_dict[index_true]
             if square_mine != square_true:
+                print("my board")
+                print(board_mine)
+                print("ground truth")
+                print(board_true)
                 status = "At {0}, {1}, expected {2}, got {3}. ".format(str(i),str(j),str(square_true),str(square_mine))
      #           status = "At " + str(i) + ", " + str(j) + ", expected" + str(square_true) + ", got " + str(square_mine)
                 return False,status
@@ -203,14 +209,19 @@ def index_into_python_board(board,i,j):
     index = i * 16 + j * 2
     return str_board[index]
 
-def compare_boards_with_file(path):
+def compare_boards_with_file(path,index=0):
     moves_lists = boardclass.file_to_move_lists(path)
     moves_lists_long = boardclass.file_to_move_lists(path,groundtruth=True)   
     moves_length = len(moves_lists)
-    for i in range(moves_length):
-        retval,status = compare_boards_with_moves(moves_lists[i],moves_lists_long[i])
+    troubling_moves = []
+    troubling_index = -1
+    for i in range(index,moves_length):
+        retval,status,index = compare_boards_with_moves(moves_lists[i],moves_lists_long[i])
         if not retval:
             print(status)
+            troubling_moves = moves_lists[i]
+            troubling_index = index
             break
-    return
+        print("{0} of of {1}".format(i,moves_length-1))
+    return troubling_moves,troubling_index
     

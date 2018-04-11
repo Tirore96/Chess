@@ -2,6 +2,7 @@ from colorama import Fore
 import numpy as np
 import boardlib
 import copy
+import sys
 
 
 all_squares = [[i,j] for i in range(8) for j in range(8)]
