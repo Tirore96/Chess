@@ -2,6 +2,7 @@
 import boardclass
 import chess 
 import sys
+import pdb
 from IPython.display import clear_output
 
 def perft(b,depth):
