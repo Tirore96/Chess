@@ -1,3 +1,9 @@
+import tensorflow as tf
+import sys
+import boardclass
+import random
+import time
+import numpy as np
 #Credit to Hvass Laboratories
 input_height = 32
 input_width = 26
@@ -20,6 +26,27 @@ fc_size = 128
 learning_rate = 1e-5
 k = 10
 
+def evaluate(board):
+    return 1
+
+#add alpha beta pruning
+def negamax(board,depth,move):
+    if depth==0:
+        return evaluate(board.board[-1]),move
+    
+    legal_moves = board.generate_legal_moves()
+    score = -sys.maxsize
+    move = ""
+    for i in legal_moves:
+        board.make_move(i)
+        cur_score,cur_move = negamax(board,depth-1,i)
+        cur_score = cur_score * -1
+        board.unmake_move()
+        if cur_score > score:
+            score = cur_score
+            move = cur_move
+    return score,move
+
 
 #credit to Hvass Laboratories
 def new_weights(shape):
@@ -35,32 +62,37 @@ def flatten_layer(layer):
     layer_falt = tf.reshape(layer,[-1,num_features])
     return layer_falt, num_features
 
-def gen_pqr_tuples(path):
+def gen_pqr_tuples(path,limit=-1):
     p = []
     q = []
     r = []
 
-    move_list_2d_curated = file_to_move_list(path)
+    move_list_2d_curated = boardclass.file_to_move_lists(path,groundtruth=True)
     curated_len = len(move_list_2d_curated)
-    counter = 0
-    for a_move_list in move_list_2d_curated:
-        board = ChessBoard(-1)
-        for a_move in a_move_list:
+    if limit == -1:
+        limit = curated_len
+        
+    counter =0
+    for i in range(limit):
+        board = boardclass.ChessBoard(-1)
+        for a_move in move_list_2d_curated[i]:
  #           print(a_move)
             p_board_encoded = board.one_hot_encode_board()
-            #r_board_encoded = encode_board_after_random_move(board)
+            r_board_encoded = encode_board_after_random_move(board)
             board.make_move(a_move)
             q_board_encoded = board.one_hot_encode_board()
             p.append(p_board_encoded)
             q.append(q_board_encoded)
-            #r.append(r_board_encoded)
+            r.append(r_board_encoded)
             #print(board.move_status,counter)
-            counter = counter + 1
             if board.move_status == "did not make move":
-                return a_move_list[:counter]
+                print("ERROR did not make move in gen_pqr_tupes")
+                return a_move_list
+            
+        counter = counter + 1
         if counter % 50 == 0:
-            print(str(counter) + " out of " + str(curated_len))
-    return []#p,q,r
+            print("{} out of {}".format(counter,limit))#str(counter) + " out of " + str(curated_len))
+    return p,q,r
             
             
 def encode_board_after_random_move(b):
@@ -74,9 +106,6 @@ def encode_board_after_random_move(b):
     return one_hot
         
 
-compare_boards_with_file("../extracted/good_games.txt")
-#temp = gen_pqr_tuples("../extracted/good_games.txt")
-#print(temp,len(temp))
 def file_to_training_data(path):
     train_x = []
     train_y = []
@@ -126,7 +155,30 @@ class TrainingData:
             retval_y = self.train_y[self.index:self.index+size]       
             self.index = self.index + size
             return retval_x,retval_y
-        
+class TrainingData_PQR:
+    def __init__(self,p,q,r):
+        self.p = np.asarray(p).reshape((-1, 32, 26, 1))
+        self.q = np.asarray(q).reshape((-1, 32, 26, 1))
+        self.r = np.asarray(r).reshape((-1, 32, 26, 1))       
+#        self.x_shape = self.train_x.shape
+#        self.y_shape = self.train_y.shape       
+#        self.x_dtype = self.train_x.dtype
+#        self.y_dtype = self.train_y.dtype
+        self.index  = 0
+        self.len = len(self.p)
+        if len(self.p) != len(self.q) or len(self.q) != len(self.r):
+            raise Exception("p,q and r are not same length")
+    
+    def next_batch(self,size):
+        if self.index + size >= self.len:
+            print("size is larger than the remaining batch")
+            return []
+        else:
+            retval_p = self.p[self.index:self.index+size]
+            retval_q = self.q[self.index:self.index+size]           
+            retval_r = self.r[self.index:self.index+size]       
+            self.index = self.index + size
+            return retval_p,retval_q,retval_r        
 
 
 p_input = tf.reshape(p,[-1,input_height,input_width,1])
@@ -210,30 +262,31 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(neg_lik
 #accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
 
 
-
 session = tf.Session()
 session.run(tf.global_variables_initializer())
 
 
-def optimize(iterations,train_x,train_y,batch_size):
+def optimize(iterations,p,q,r,batch_size):
     start_time = time.time()
-    train_data = TrainingData(train_x,train_y)
+    train_data = TrainingData_PQR(p,q,r)
 
     for i in range(iterations):
-        x_batch,y_batch = train_data.next_batch(batch_size)
+        p_batch,q_batch,r_batch = train_data.next_batch(batch_size)
         
-        feed_dict_train = {x:x_batch,y_true:y_batch}
+        feed_dict_train = {p_input:p_batch,q_input:q_batch,r_input:r_batch}
         
         session.run(optimizer,feed_dict=feed_dict_train)
         
-        acc = session.run(accuracy, feed_dict=feed_dict_train)
-        print("Optimization Iteration "+ str(i) + " Training Accuracy "+str(acc))
+        score = session.run(p_val_4,feed_dict={p_input:p_batch})
+        
+        acc = likelihood*100
+        print("Optimization Iteration "+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
     end_time = time.time()
     print("Time used " + str(end_time-start_time))
 
 
-training_size = len(train_x)
-iterations = 100
-batch_size = training_size//iterations
-
-optimize(iterations,train_x,train_y,batch_size)
+#training_size = len(train_x)
+#iterations = 100
+#batch_size = training_size//iterations
+#
+#optimize(iterations,train_x,train_y,batch_size)

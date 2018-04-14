@@ -3,6 +3,11 @@ import boardclass
 import chess 
 import sys
 import pdb
+import time
+import copy
+from multiprocessing import Pool
+
+
 from IPython.display import clear_output
 
 def perft(b,depth):
@@ -52,7 +57,7 @@ def wrong_moves(correct_board,my_board, depth,path):
     concated_moves = ""
     for i in correct_legal_moves:
         concated_moves = concated_moves + i + ' '
-    correct_legal_moves = curate_pgn_string(concated_moves)
+    correct_legal_moves = boardclass.curate_pgn_string(concated_moves)
     
     false_positive = ["-" + i for i in my_legal_moves if i not in correct_legal_moves]
     false_negative = ["+" + i for i in correct_legal_moves if i not in my_legal_moves]
@@ -154,7 +159,7 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
                 b.make_move(do)
                 #pdb.set_trace()
                 s = b.move_status
-                if not(s in legal_outputs):
+                if not(s in boardclass.legal_outputs):
                     print(s)
                     print(len(s))
                     print("wrong input")

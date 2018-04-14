@@ -37,16 +37,18 @@ def curate_pgn_string(s):
 #curated = curate_pgn_string_from_file(s)
 
 
-def file_to_move_lists(path,move_size=4,groundtruth=False):
+def file_to_move_lists(path,groundtruth=False):
     file = open(path,"r")
     file_string = file.read()
     file_string = file_string.lower()
     #remove plus from moves if it is moves for the groundtruth
-    remove_chars = ["+","#"]
+    remove_chars = ["+","#","1-0","0-1","1/2-1/2"]
     if groundtruth:
         for i in remove_chars:
             file_string = file_string.replace(i,"")
     move_list = file_string.split("\n")
+  #  results = []
+  #  move_list = [i for i in move_list if i not in results]
     move_list_2d = [i.split(" ") for i in move_list]
     move_size = 4
     remove_elements = [" ",""]

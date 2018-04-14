@@ -383,6 +383,8 @@ def update_king_pos(king_pos,player,x,y):
     king_pos[player] = [x,y]
     return king_pos
 
+
+
 def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status,promotion):
     #deep copy
     cur_board = copy.copy(board[-1])
