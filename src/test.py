@@ -179,6 +179,9 @@ def compare_boards_with_moves(moves,moves_long):
     board_true = chess.Board()
     length_moves = len(moves)
     for i in range(length_moves):
+      #  if i == 99 and moves[i] == 'd2c1':
+      #      pdb.set_trace()
+     #   print(moves[i])
         board_mine.make_move(moves[i])
         
         board_true_move = chess.Move.from_uci(moves_long[i])
@@ -186,6 +189,13 @@ def compare_boards_with_moves(moves,moves_long):
         is_equal,status = compare_boards(board_mine.board[-1],board_true)
         if not is_equal:
             status = status + "Previous moves: {0}, reached {1} out of {2}. Move is {3}".format(str(moves[i-lookback:i]),i,length_moves,moves_long[i])
+            index = i
+            #for _ in range(5):
+            #    index = index - 1
+            #    board_mine.unmake_move()
+            #    board_true.pop()
+            #    print(board_mine.board[-1])
+            #    print(board_true)               
             return False,status,i
     return True,"",-1
 
@@ -200,29 +210,37 @@ def compare_boards(board_mine,board_true):
                 print(board_mine)
                 print("ground truth")
                 print(board_true)
-                status = "At {0}, {1}, expected {2}, got {3}. ".format(str(i),str(j),str(square_true),str(square_mine))
+                status = "At {0}, {1}, expected {2}, got {3}. ".format(i,j,square_true,square_mine)
      #           status = "At " + str(i) + ", " + str(j) + ", expected" + str(square_true) + ", got " + str(square_mine)
                 return False,status
     return True,""
     
 def index_into_python_board(board,i,j):
-    str_board = str(board)
-    index = i * 16 + j * 2
-    return str_board[index]
+    i = 7 - i
+    index = i * 8 + j
+    piece = board.piece_at(index)
+    if piece == None: 
+        piece_str = '.'
+    else:
+        piece_str = board.piece_at(index).symbol()
+    return piece_str
 
 def compare_boards_with_file(path,index=0):
-    moves_lists = boardclass.file_to_move_lists(path)
+#    moves_lists = boardclass.file_to_move_lists(path)
     moves_lists_long = boardclass.file_to_move_lists(path,groundtruth=True)   
-    moves_length = len(moves_lists)
+    moves_length = len(moves_lists_long)
     troubling_moves = []
     troubling_index = -1
     for i in range(index,moves_length):
-        retval,status,index = compare_boards_with_moves(moves_lists[i],moves_lists_long[i])
+        retval,status,index = compare_boards_with_moves(moves_lists_long[i],moves_lists_long[i])
+       # print(moves_lists_long[i])
         if not retval:
             print(status)
-            troubling_moves = moves_lists[i]
+            troubling_moves = moves_lists_long[i]
             troubling_index = index
+            
             break
-        print("{0} of of {1}".format(i,moves_length-1))
+        if i %10 == 0:
+            print("{0} of of {1}".format(i,moves_length-1))
     return troubling_moves,troubling_index
     

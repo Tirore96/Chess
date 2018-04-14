@@ -18,7 +18,7 @@ one_arr = [[1 for i in range(8)] for j in range(8)]
 #from numpy cimport ndarray
 #cimport numpy as np_c
 pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
-promotions = {'r':1,'k':2,'b':3,'q':4}
+promotions = {'r':1,'n':2,'b':3,'q':4}
 piece_owner = [0,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1]
 list_letters = ['a','b','c','d','e','f','g','h']
 list_numbers = list(map(str,list((range(1,9)))))
@@ -255,14 +255,18 @@ def c_eval_pseudo_legal_move(board,move,
                         return c_eval_castling(board,move,[x_dir,y_dir],rights,player,player_positions)
                     return False,"Piece is not a slider, but tries to slide",rights
                 #normal king move of one
+                rights[x_1,y_1] = 0
                 return True,"king_move",rights
+            rights[x_1,y_1] = 0
             return True,"",rights
         return False,"piece is blocked",rights
     return False,"Unrecognized violation",rights
 
-
 def algebraic_to_arr_indices(s):
-    y_1,x_1,y_2,x_2 = s
+    try:
+        y_1,x_1,y_2,x_2 = s
+    except:
+        pdb.set_trace()
     x_1_alg = x_algebraic[x_1]
     y_1_alg = y_algebraic[y_1]
     x_2_alg = x_algebraic[x_2]
@@ -277,7 +281,7 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
         promotion = move[4] 
     if move_format == "alg":
         if has_promotion:
-            move = move.replace(promotion,"")
+            move = move[:-1]#.replace(promotion,"")
         move = algebraic_to_arr_indices(move)
         
     x_1_alg,y_1_alg,x_2_alg,y_2_alg = move
@@ -286,7 +290,7 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
     cur_king_pos = copy.deepcopy(king_pos[-1])
     cur_player_positions = copy.deepcopy(player_positions[-1])
 
-    legal_move,status,cur_rights,now_in_chess = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])#,promotion)
+    legal_move,status,cur_rights,now_in_chess = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1],promotion)
     player_index = 0 if player == 1 else 1
     enemy_index = 1 if player == 1 else 0
     capture_status = []
@@ -361,7 +365,7 @@ def update_king_pos(king_pos,player,x,y):
     king_pos[player] = [x,y]
     return king_pos
 
-def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status):#,promotion):
+def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status,promotion):
     #deep copy
     cur_board = board[-1]
     cur_rights = copy.deepcopy(rights[-1])
@@ -371,8 +375,8 @@ def eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_sta
     #if move is not legal, don't check if the king is in chess.
     if not legal_move:
         return False,status,rights_new,False
-    #king_is_now_in_chess = is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status)#,status,promotion)
-    retval = legal_move and True#not king_is_now_in_chess
+    king_is_now_in_chess = is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status,status,promotion)
+    retval = legal_move and not king_is_now_in_chess
     return retval,status,rights_new,False#king_is_now_in_chess
 
 def gen_all_possible_moves(all_moves):
@@ -475,7 +479,7 @@ def move_pawn(cur_board,move,status,player,promotion):
     cur_board[x_1_alg,y_1_alg] = 0 
     return cur_board,aux_move
 
-def is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status):#,status,promotion):
+def is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_king_pos,player,player_positions,chess_status,status,promotion):
     x_1,y_1,x_2,y_2 = move
     king_index = 0 if player == 1 else 1
        
@@ -488,15 +492,15 @@ def is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_kin
 #    if pieces[cur_board[x_1,y_1]] == "King":
 #        cur_king_pos = update_king_pos(cur_king_pos,king_index,x_2,y_2)
 
-#    if piece == "Pawn":
-#        cur_board,_= move_pawn(cur_board,move,status,player,promotion)
-#        
-#    elif piece == "King":
-#        cur_board,_= move_king(cur_board,move,status)
-#        cur_king_pos = update_king_pos(cur_king_pos,player_index,x_2,y_2)
-#    else:
-#        cur_board[x_2,y_2] = cur_board[x_1,y_1]
-#        cur_board[x_1,y_1] = 0   
+    if piece == "Pawn":
+        cur_board,_= move_pawn(cur_board,move,status,player,promotion)
+        
+    elif piece == "King":
+        cur_board,_= move_king(cur_board,move,status)
+        cur_king_pos = update_king_pos(cur_king_pos,player_index,x_2,y_2)
+    else:
+        cur_board[x_2,y_2] = cur_board[x_1,y_1]
+        cur_board[x_1,y_1] = 0   
 
 #    temp = cur_board[x_2,y_2]
 #    cur_board[x_2,y_2] =  cur_board[x_1,y_1]
@@ -511,7 +515,7 @@ def is_king_now_in_chess(board,move,rights,king_pos,cur_board,cur_rights,cur_kin
 #    if pieces[cur_board[x_1,y_1]] == "King":
 #        cur_king_pos = update_king_pos(cur_king_pos,king_index,x_1,y_1)
         
-    return False#king_in_chess_now
+    return king_in_chess_now
 #    if king_in_chess_now:# and not king_in_chess_before:
 #        return True
 #    else:
