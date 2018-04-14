@@ -3,7 +3,7 @@ import numpy as np
 import boardlib
 import copy
 import sys
-
+import pdb
 
 all_squares = [[i,j] for i in range(8) for j in range(8)]
 all_moves = [i+j for i in all_squares for j in all_squares]
