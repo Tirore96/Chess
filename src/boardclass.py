@@ -4,7 +4,8 @@ import boardlib
 import copy
 import sys
 import pdb
-
+import training
+import tensorflow as tf
 all_squares = [[i,j] for i in range(8) for j in range(8)]
 all_moves = [i+j for i in all_squares for j in all_squares]
 pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
@@ -152,10 +153,12 @@ def pp_board(board):
     for i in list_letters:
         print(Fore.BLACK + i,end="\t")
     sys.stdout.flush()
+#add alpha beta pruning
+
 
 
 class ChessBoard:
-    def __init__(self,player):
+    def __init__(self,player,path="/tmp/model.ckpt"):
         self.board = create_board()
         self.rights = create_rights()
         self.king_positions = create_king_positions()
@@ -164,6 +167,7 @@ class ChessBoard:
         self.player = player
         self.move_status = ""
         self.capture_status = []
+        self.model = training.Model(path)
     
     def make_move(self,move):
         self.board ,self.move_status ,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
@@ -195,7 +199,45 @@ class ChessBoard:
         
         return flattened_board_copy.flatten()
     
- 
+    def negamax(self,depth,move):
+        if depth==0:
+            return self.evaluate_board(),move
+        
+        legal_moves = self.generate_legal_moves()
+        score = -sys.maxsize
+        move = ""
+        for i in legal_moves:
+            self.make_move(i)
+            cur_score,cur_move = self.negamax(depth-1,i)
+            cur_score = cur_score * -1
+            self.unmake_move()
+            if cur_score > score:
+                score = cur_score
+                move = cur_move
+        return score,move
+
+    def return_best_move(self,depth):
+        return self.negamax(depth,"")
+    
+    def train_model(self,iterations,train_data,batch_size):
+        self.model.run_session(iterations,train_data,batch_size)
+    
+    
+    def show_weights(self):
+        val = self.model.session.run(weights_1)
+        print(val)
+        
+    def restore_model(self):
+        self.model.restore_model()
+        
+    def restore_default(self):
+        tf.reset_default_graph()
+
+
+
+    def evaluate_board(self):
+        return self.model.evaluate(self)
+        
     def show_board(self):
         pp_board(self.board[-1])
     

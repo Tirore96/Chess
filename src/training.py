@@ -21,29 +21,39 @@ last_connected_output = 2048
 
 fc_size = 128
 learning_rate = 1e-5
-k = 10
+k = 100
+global_sess = None
+batch_size = 1
 
-def evaluate(board):
-    return 1
-
-#add alpha beta pruning
-def negamax(board,depth,move):
-    if depth==0:
-        return evaluate(board.board[-1]),move
+class Model:
+    def __init__(self,path="/tmp/model.ckpt"):
+        self.session = tf.Session()
+        self.path = path
     
-    legal_moves = board.generate_legal_moves()
-    score = -sys.maxsize
-    move = ""
-    for i in legal_moves:
-        board.make_move(i)
-        cur_score,cur_move = negamax(board,depth-1,i)
-        cur_score = cur_score * -1
-        board.unmake_move()
-        if cur_score > score:
-            score = cur_score
-            move = cur_move
-    return score,move
+    def run_session(self,iterations,train_data,batch_size):
+        self.session.run(tf.global_variables_initializer())
+        optimize(iterations,train_data,batch_size,self.session)
+        saver = tf.train.Saver()
+        path = saver.save(self.session,self.path)
+        print("Model saved at {}".format(path))
+        self.session.close()
 
+
+    def restore_model(self):
+        saver = tf.train.Saver()
+        self.session = tf.Session()
+        saver.restore(self.session,self.path)    
+        self.session.run(tf.global_variables_initializer())
+
+
+    def evaluate(self,board):
+        p_cur = board.one_hot_encode_board()
+        p_cur = p_cur.reshape((1,832))
+        score = self.session.run(p_val,feed_dict={p:p_cur})
+        return score
+    
+    def close_session(self):
+        self.session.close()
 
 #credit to Hvass Laboratories
 def new_weights(shape):
@@ -182,28 +192,26 @@ class TrainingData_PQR:
 
 
 weights_1 = new_weights(shape=[input_size,input_size])
-biases_1  = new_weights(shape=[input_size,input_size])
+biases_1  = new_weights(shape=[batch_size,input_size])
 
 weights_2 = new_weights(shape=[input_size,input_size])
-biases_2  = new_weights(shape=[input_size,input_size])
+biases_2  = new_weights(shape=[batch_size,input_size])
 
 weights_3 = new_weights(shape=[input_size,last_connected_output])
-biases_3  = new_weights(shape=[input_size,last_connected_output])
+biases_3  = new_weights(shape=[batch_size,last_connected_output])
 
 weights_4 = new_weights(shape=[last_connected_output,1])
-biases_4  = new_weights(shape=[input_size])
+biases_4  = new_weights(shape=[batch_size])
 
-weights_5 = new_weights(shape=[1,input_size])
-biases_5  = new_weights(shape=[1])
 
-weights = [weights_1,weights_2,weights_3,weights_4,weights_5]
-biases  = [biases_1,biases_2,biases_3,biases_4,biases_5]
+weights = [weights_1,weights_2,weights_3,weights_4]
+biases  = [biases_1,biases_2,biases_3,biases_4]
 
 def matmul_input(input, weights,biases,input_size,last_connected_output):
     retval,features = flatten_layer(input)
     for i in range(4):
         retval = tf.matmul(retval,weights[i])
-        #retval = retval + biases[i]
+        retval = retval + biases[i]
         retval = tf.nn.relu(retval)
  #   retval = tf.matmul(weights[4],retval)
  #   print(retval)
@@ -223,7 +231,7 @@ p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)
 q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
 r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
 
-likelihood = tf.log(tf.sigmoid(r_val-q_val)) - tf.log(tf.abs(p_val - q_val))*k
+likelihood = tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #tf.sigmoid(tf.log(tf.sigmoid(r_val-q_val)) - tf.log(tf.abs(p_val - q_val))*k)
 reduced_likelihood = tf.reduce_sum(likelihood)
 reduced_neg_likelihood = tf.subtract(tf.cast(1,tf.float32),reduced_likelihood)
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
@@ -251,6 +259,9 @@ def run_session(iterations,train_data,batch_size):
     session = tf.Session()
     session.run(tf.global_variables_initializer())
     optimize(iterations,train_data,batch_size,session)
+    saver = tf.train.Saver()
+    path = saver.save(session,"/tmp/model.ckpt")
+    print("Model saved at {}".format(path))
     session.close()
     return 
 
