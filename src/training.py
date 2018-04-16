@@ -10,10 +10,7 @@ input_width = 26
 input_size = input_height * input_width
 num_squares = 8 *8 
 #x = tf.placeholder(tf.float32,[None,input_size])
-p = tf.placeholder(tf.float32,[None,input_size])
-r = tf.placeholder(tf.float32,[None,input_size])
-q = tf.placeholder(tf.float32,[None,input_size])
-y_true = tf.placeholder(tf.float32,[None])
+
 #y_true_cls = tf.argmax(y_true,axis=2)
 filter_size1 = 2
 num_filters1 = 3
@@ -92,12 +89,12 @@ def gen_pqr_tuples(path,limit=-1):
         counter = counter + 1
         if counter % 50 == 0:
             print("{} out of {}".format(counter,limit))#str(counter) + " out of " + str(curated_len))
+            
     return p,q,r
             
             
 def encode_board_after_random_move(b):
     moves = b.generate_legal_moves()
-    p
     moves_len = len(moves)
     index = random.randint(0,moves_len-1)
     b.make_move(moves[index])
@@ -155,11 +152,13 @@ class TrainingData:
             retval_y = self.train_y[self.index:self.index+size]       
             self.index = self.index + size
             return retval_x,retval_y
+        
 class TrainingData_PQR:
-    def __init__(self,p,q,r):
-        self.p = np.asarray(p).reshape((-1, 32, 26, 1))
-        self.q = np.asarray(q).reshape((-1, 32, 26, 1))
-        self.r = np.asarray(r).reshape((-1, 32, 26, 1))       
+    def __init__(self,path,limit=-1):
+        p,q,r = gen_pqr_tuples(path,limit)
+        self.p = np.asarray(p,dtype=np.float32).reshape((-1,832))
+        self.q = np.asarray(q,dtype=np.float32).reshape((-1,832))
+        self.r = np.asarray(r,dtype=np.float32).reshape((-1,832))       
 #        self.x_shape = self.train_x.shape
 #        self.y_shape = self.train_y.shape       
 #        self.x_dtype = self.train_x.dtype
@@ -177,17 +176,9 @@ class TrainingData_PQR:
             retval_p = self.p[self.index:self.index+size]
             retval_q = self.q[self.index:self.index+size]           
             retval_r = self.r[self.index:self.index+size]       
-            self.index = self.index + size
             return retval_p,retval_q,retval_r        
 
 
-p_input = tf.reshape(p,[-1,input_height,input_width,1])
-r_input = tf.reshape(r,[-1,input_height,input_width,1])
-q_input = tf.reshape(q,[-1,input_height,input_width,1])
-
-p_flat,p_features= flatten_layer(p_input)
-r_flat,r_features= flatten_layer(r_input)
-q_flat,q_features= flatten_layer(q_input)
 
 
 weights_1 = new_weights(shape=[input_size,input_size])
@@ -200,89 +191,68 @@ weights_3 = new_weights(shape=[input_size,last_connected_output])
 biases_3  = new_weights(shape=[input_size,last_connected_output])
 
 weights_4 = new_weights(shape=[last_connected_output,1])
-biases_4  = new_weights(shape=[1])
+biases_4  = new_weights(shape=[input_size])
 
-p_val_1 = tf.matmul(p_flat,weights_1)  + biases_1
-p_val_1 = tf.nn.relu(p_val_1)
+weights_5 = new_weights(shape=[1,input_size])
+biases_5  = new_weights(shape=[1])
 
-p_val_2 = tf.matmul(p_val_1,weights_2) + biases_2
-p_val_2 = tf.nn.relu(p_val_2)
+weights = [weights_1,weights_2,weights_3,weights_4,weights_5]
+biases  = [biases_1,biases_2,biases_3,biases_4,biases_5]
 
-p_val_3 = tf.matmul(p_val_2,weights_3) + biases_3
-p_val_3 = tf.nn.relu(p_val_3)
+def matmul_input(input, weights,biases,input_size,last_connected_output):
+    retval,features = flatten_layer(input)
+    for i in range(4):
+        retval = tf.matmul(retval,weights[i])
+        #retval = retval + biases[i]
+        retval = tf.nn.relu(retval)
+ #   retval = tf.matmul(weights[4],retval)
+ #   print(retval)
+ #   retval = retval + biases[4]
+ #   retval = tf.nn.relu(retval)
+    return retval
+        
+p = tf.placeholder(tf.float32,[None,input_size])
+q = tf.placeholder(tf.float32,[None,input_size])
+r = tf.placeholder(tf.float32,[None,input_size])
 
-p_val_4 = tf.matmul(p_val_3,weights_4) + biases_4
-p_val_4 = tf.nn.relu(p_val_4)
+p_input = tf.reshape(p,[-1,input_height,input_width,1])
+q_input = tf.reshape(q,[-1,input_height,input_width,1])
+r_input = tf.reshape(r,[-1,input_height,input_width,1])
 
+p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)        
+q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
+r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
 
-r_val_1 = tf.matmul(r_flat,weights_1)  + biases_1
-r_val_1 = tf.nn.relu(r_val_1)
-
-r_val_2 = tf.matmul(r_val_1,weights_2) + biases_2
-r_val_2 = tf.nn.relu(r_val_2)
-
-r_val_3 = tf.matmul(r_val_2,weights_3) + biases_3
-r_val_3 = tf.nn.relu(r_val_3)
-
-r_val_4 = tf.matmul(r_val_3,weights_4) + biases_4
-r_val_4 = tf.nn.relu(r_val_4)
-
-
-q_val_1 = tf.matmul(q_flat,weights_1)  + biases_1
-q_val_1 = tf.nn.relu(q_val_1)
-
-q_val_2 = tf.matmul(q_val_1,weights_2) + biases_2
-q_val_2 = tf.nn.relu(q_val_2)
-
-q_val_3 = tf.matmul(q_val_2,weights_3) + biases_3
-q_val_3 = tf.nn.relu(q_val_3)
-
-q_val_4 = tf.matmul(q_val_3,weights_4) + biases_4
-q_val_4 = tf.nn.relu(q_val_4)
+likelihood = tf.log(tf.sigmoid(r_val-q_val)) - tf.log(tf.abs(p_val - q_val))*k
+reduced_likelihood = tf.reduce_sum(likelihood)
+reduced_neg_likelihood = tf.subtract(tf.cast(1,tf.float32),reduced_likelihood)
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
 
 
 
-likelihood = tf.log(tf.sigmoid(q_val_4-r_val_4)) + k * tf.log(p_val_4 + q_val_4) + k * tf.log(-p_val_4-q_val_4)
-neg_likelihood = tf.subtract(tf.cast(1,tf.float32),likelihood)
-
-#
-#layer_fc2_reshaped = tf.reshape(layer_fc2,[-1,2,num_squares])
-#
-#y_pred = tf.nn.softmax(layer_fc2_reshaped)
-#y_pred_cls = tf.argmax(y_pred,axis=2)
-
-#cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=layer_fc2_reshaped,
-                                                 #      labels=y_true)
-#cost = tf.reduce_mean(cross_entropy)
-
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(neg_likelihood)
-
-#correct_prediction = tf.equal(y_pred_cls,y_true_cls)
-#
-#accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
-
-
-session = tf.Session()
-session.run(tf.global_variables_initializer())
-
-
-def optimize(iterations,p,q,r,batch_size):
+def optimize(iterations,train_data,batch_size,session):
     start_time = time.time()
-    train_data = TrainingData_PQR(p,q,r)
 
     for i in range(iterations):
         p_batch,q_batch,r_batch = train_data.next_batch(batch_size)
-        
-        feed_dict_train = {p_input:p_batch,q_input:q_batch,r_input:r_batch}
+        feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
         
         session.run(optimizer,feed_dict=feed_dict_train)
         
-        score = session.run(p_val_4,feed_dict={p_input:p_batch})
-        
-        acc = likelihood*100
-        print("Optimization Iteration "+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
+        #score = session.run(p_val_4,feed_dict={p_input:p_batch})
+#        
+        acc = session.run(reduced_likelihood,feed_dict=feed_dict_train)*100
+        print("Optimization Iteration {}, Training Accuracy {}".format(i,acc))#+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
     end_time = time.time()
     print("Time used " + str(end_time-start_time))
+
+
+def run_session(iterations,train_data,batch_size):
+    session = tf.Session()
+    session.run(tf.global_variables_initializer())
+    optimize(iterations,train_data,batch_size,session)
+    session.close()
+    return 
 
 
 #training_size = len(train_x)
