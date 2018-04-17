@@ -20,30 +20,69 @@ num_filters2 = 6
 last_connected_output = 2048
 
 fc_size = 128
-learning_rate = 1e-5
-k = 100
-global_sess = None
+
+
 batch_size = 1
+learning_rate = 1e-5
+r_worse_than_q = 2
+k = 15
+r_priority = k/2
+k_p = 20
+weights_val = 0.2
+bias_val = 0.5
 
 class Model:
-    def __init__(self,path="/tmp/model.ckpt"):
+    def __init__(self,path="model_final"):
         self.session = tf.Session()
         self.path = path
     
     def run_session(self,iterations,train_data,batch_size):
-        self.session.run(tf.global_variables_initializer())
-        optimize(iterations,train_data,batch_size,self.session)
-        saver = tf.train.Saver()
-        path = saver.save(self.session,self.path)
-        print("Model saved at {}".format(path))
-        self.session.close()
+        with tf.Session() as sess:
+            
+            sess.run(tf.global_variables_initializer())
+            start_time = time.time()
+
+            for i in range(iterations):
+                p_batch,q_batch,r_batch = train_data.next_batch(batch_size)
+                feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
+                
+                sess.run(optimizer,feed_dict=feed_dict_train)
+                
+               # score = sess.run(p_val,feed_dict={p:p_batch})
+               # print("score P: {}".format(score))
+               # 
+               # score = sess.run(q_val,feed_dict={q:q_batch})
+               # print("score Q: {}".format(score))
+               # 
+               # score = sess.run(r_val,feed_dict={r:r_batch})
+               # print("score R: {}".format(score))
+                #     
+               # score = sess.run(weights_1)
+               # print("score weights_1: {}".format(score))
+               # acc = sess.run(reduced_likelihood,feed_dict=feed_dict_train)*100
+               # print("Optimization Iteration {}, Training Accuracy {}".format(i,acc))#+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
+            end_time = time.time()
+            print("Time used " + str(end_time-start_time))
+            #optimize(iterations,train_data,batch_size,sess)
+            sess.run(tf.global_variables_initializer())
+            saver = tf.train.Saver()
+            path = saver.save(sess,self.path)
+            print("Model saved at {}".format(self.path))
+            sess.close()
 
 
     def restore_model(self):
-        saver = tf.train.Saver()
-        self.session = tf.Session()
-        saver.restore(self.session,self.path)    
-        self.session.run(tf.global_variables_initializer())
+        tf.reset_default_graph()
+        imported_meta = tf.train.import_meta_graph("model_final.meta")
+        imported_meta.restore(self.session,tf.train.latest_checkpoint("./"))
+        #self.session.run(p_val,feed_dict={p:np.array([0 for i in range(832)]).reshape(1,832)})
+#        saver = tf.train.Saver()
+#        with tf.Session as sess:
+#            saver.restore(sess,self.path)
+#            
+#        self.session = tf.Session()
+#        saver.restore(self.session,self.path)    
+#        self.session.run(tf.global_variables_initializer())
 
 
     def evaluate(self,board):
@@ -57,10 +96,10 @@ class Model:
 
 #credit to Hvass Laboratories
 def new_weights(shape):
-    return tf.Variable(tf.truncated_normal(shape,stddev=0.05))
+    return tf.Variable(tf.truncated_normal(shape,stddev=weights_val))
 
 def new_biases(length):
-    return tf.Variable(tf.constant(0.5,shape=[length]))
+    return tf.Variable(tf.constant(bias_val,shape=[length]))
 
 
 def flatten_layer(layer):
@@ -207,16 +246,14 @@ biases_4  = new_weights(shape=[batch_size])
 weights = [weights_1,weights_2,weights_3,weights_4]
 biases  = [biases_1,biases_2,biases_3,biases_4]
 
-def matmul_input(input, weights,biases,input_size,last_connected_output):
+def matmul_input(input, weights,biases,input_size,last_connected_output,use_RELU=False):
     retval,features = flatten_layer(input)
     for i in range(4):
         retval = tf.matmul(retval,weights[i])
         retval = retval + biases[i]
-        retval = tf.nn.relu(retval)
- #   retval = tf.matmul(weights[4],retval)
- #   print(retval)
- #   retval = retval + biases[4]
- #   retval = tf.nn.relu(retval)
+        if use_RELU:
+            retval = tf.nn.relu(retval)
+
     return retval
         
 p = tf.placeholder(tf.float32,[None,input_size])
@@ -227,47 +264,27 @@ p_input = tf.reshape(p,[-1,input_height,input_width,1])
 q_input = tf.reshape(q,[-1,input_height,input_width,1])
 r_input = tf.reshape(r,[-1,input_height,input_width,1])
 
-p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)        
+p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)  
 q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
 r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
 
-likelihood = tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #tf.sigmoid(tf.log(tf.sigmoid(r_val-q_val)) - tf.log(tf.abs(p_val - q_val))*k)
+#(q_val-p_val): q_val optimized to be negative, p_val optimized to be positive
+#k*tf.square(q_val + p_val): p_val = -q_val. with q_val as negative and p_val as positive, minimize the squared sum.
+#k*tf.square(q_val - r_val*r_worse_than_q): adjust r_val to be half of what q_val is (since r_val should be is less negative than q_val
+
+likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
+
+#tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
 reduced_likelihood = tf.reduce_sum(likelihood)
-reduced_neg_likelihood = tf.subtract(tf.cast(1,tf.float32),reduced_likelihood)
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
+reduced_neg_likelihood = tf.negative(reduced_likelihood)
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
 
-
-
-def optimize(iterations,train_data,batch_size,session):
-    start_time = time.time()
-
-    for i in range(iterations):
-        p_batch,q_batch,r_batch = train_data.next_batch(batch_size)
-        feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
-        
-        session.run(optimizer,feed_dict=feed_dict_train)
-        
-        #score = session.run(p_val_4,feed_dict={p_input:p_batch})
-#        
-        acc = session.run(reduced_likelihood,feed_dict=feed_dict_train)*100
-        print("Optimization Iteration {}, Training Accuracy {}".format(i,acc))#+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
-    end_time = time.time()
-    print("Time used " + str(end_time-start_time))
-
-
-def run_session(iterations,train_data,batch_size):
-    session = tf.Session()
-    session.run(tf.global_variables_initializer())
-    optimize(iterations,train_data,batch_size,session)
-    saver = tf.train.Saver()
-    path = saver.save(session,"/tmp/model.ckpt")
-    print("Model saved at {}".format(path))
-    session.close()
-    return 
-
-
-#training_size = len(train_x)
-#iterations = 100
-#batch_size = training_size//iterations
-#
-#optimize(iterations,train_x,train_y,batch_size)
+#def run_session(iterations,train_data,batch_size):
+#    session = tf.Session()
+#    session.run(tf.global_variables_initializer())
+#    optimize(iterations,train_data,batch_size,session)
+#    saver = tf.train.Saver()
+#    path = saver.save(session,"/tmp/model.ckpt")
+#    print("Model saved at {}".format(path))
+#    session.close()
+#    return 

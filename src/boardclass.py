@@ -158,7 +158,7 @@ def pp_board(board):
 
 
 class ChessBoard:
-    def __init__(self,player,path="/tmp/model.ckpt"):
+    def __init__(self,player,path="model_final"):
         self.board = create_board()
         self.rights = create_rights()
         self.king_positions = create_king_positions()
@@ -232,6 +232,9 @@ class ChessBoard:
         
     def restore_default(self):
         tf.reset_default_graph()
+        
+    def close_session(self):
+        self.model.session.close()
 
 
 
