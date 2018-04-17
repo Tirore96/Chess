@@ -8,6 +8,10 @@ import sys
 import pdb
 import training
 import tensorflow as tf
+import chess
+import chess.svg
+from IPython.display import SVG
+
 all_squares = [[i,j] for i in range(8) for j in range(8)]
 all_moves = [i+j for i in all_squares for j in all_squares]
 pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
@@ -171,6 +175,7 @@ class ChessBoard:
         self.capture_status = []
         self.model = training.Model(path)
         self.player_in_chess = None
+        self.python_board = chess.Board()
     
     def make_move(self,move):
 
@@ -178,6 +183,7 @@ class ChessBoard:
             print("Cannot make move. Player {} is in chess".format(self.player))
             
         else:
+            self.python_board.push(chess.Move.from_uci(move))
             self.board ,self.move_status ,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
         
                                                                                                                                           move,
@@ -193,12 +199,14 @@ class ChessBoard:
             if not not_checkmate:
                 self.player_in_chess = self.player
     def unmake_move(self):
+        self.python_board.pop()
         self.board,self.move_status,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
                                                                                                                                             self.rights,
                                                                                                                                             self.player,
                                                                                                                                             self.king_positions,
                                                                                                                                             self.player_positions,
                                                                                                                                             self.chess_status)
+        
     def one_hot_encode_board(self):   
         array = self.board[-1]
         flattened_board_copy = np.zeros((8,8,13),dtype=int) 
