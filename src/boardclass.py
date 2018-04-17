@@ -170,15 +170,28 @@ class ChessBoard:
         self.move_status = ""
         self.capture_status = []
         self.model = training.Model(path)
+        self.player_in_chess = None
     
     def make_move(self,move):
-        self.board ,self.move_status ,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
+
+        if self.player_in_chess != None:
+            print("Cannot make move. Player {} is in chess".format(self.player))
+            
+        else:
+            self.board ,self.move_status ,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
+        
                                                                                                                                           move,
                                                                                                                                           self.rights,
                                                                                                                                           self.player,
                                                                                                                                           self.king_positions,
                                                                                                                                           self.player_positions,
                                                                                                                                           self.chess_status)
+        
+            not_checkmate = boardlib.legal_move_exists(self.board,self.rights,self.player,
+                                        self.king_positions,self.player_positions,
+                                        self.chess_status,boardlib.all_moves)
+            if not not_checkmate:
+                self.player_in_chess = self.player
     def unmake_move(self):
         self.board,self.move_status,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
                                                                                                                                             self.rights,
@@ -186,7 +199,6 @@ class ChessBoard:
                                                                                                                                             self.king_positions,
                                                                                                                                             self.player_positions,
                                                                                                                                             self.chess_status)
-    
     def one_hot_encode_board(self):   
         array = self.board[-1]
         flattened_board_copy = np.zeros((8,8,13),dtype=int) 

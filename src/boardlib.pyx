@@ -449,6 +449,16 @@ cpdef generate_all_legal_moves(list board,list rights,long player,list king_pos,
             all_legal_moves.append(algebraic_move)
     return all_legal_moves
 
+def legal_move_exists(board,rights,player,king_pos, player_positions,chess_status,all_moves):
+    all_legal_moves = []
+    all_moves_len = len(all_moves)
+    for i in range(all_moves_len):
+        move = all_moves[i]
+        legal,_,_,_ = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1],"")
+        if legal:
+            return True
+    return False 
+
 def arr_to_algebraic(arr):
     x_1,y_1,x_2,y_2 = arr
     x_1_s =algebraic_vertical[x_1]

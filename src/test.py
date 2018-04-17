@@ -1,5 +1,7 @@
 ## Test cell. Here are the functions that test the engine
 import boardclass
+import importlib
+importlib.reload(boardclass)
 import chess 
 import sys
 import pdb
@@ -125,6 +127,10 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
     while not stop:
         if set_pdb:
             pdb.set_trace()
+        if b.player_in_chess != None:
+            print(b.player_in_chess)
+            print("Player {} lost".format(b.player))
+            break
         do = input()
 #        if do == "":
 #            do = prev
@@ -184,8 +190,8 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
         count += 1
         i = i + 1
     #clear_output()
-    b.show_board()
-
+    #b.show_board()
+    
 def compare_boards_with_moves(moves,moves_long):
     board_mine = boardclass.ChessBoard(-1)
     lookback = 10
