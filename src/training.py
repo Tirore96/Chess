@@ -28,7 +28,7 @@ r_worse_than_q = 2
 k = 15
 r_priority = k/2
 k_p = 20
-weights_val = 0.2
+weights_val = 0.5
 bias_val = 0.5
 
 class Model:
@@ -48,7 +48,7 @@ class Model:
                 
                 sess.run(optimizer,feed_dict=feed_dict_train)
                 
-                if iterations % 10 == 0:
+                if i == iterations-1 :
                     score = sess.run(p_val,feed_dict={p:p_batch})
                     print("score P: {}".format(score))
                     
@@ -65,15 +65,15 @@ class Model:
             end_time = time.time()
             print("Time used " + str(end_time-start_time))
             #optimize(iterations,train_data,batch_size,sess)
-            #sess.run(tf.global_variables_initializer())
+            sess.run(tf.global_variables_initializer())
             saver = tf.train.Saver()
-            path = saver.save(sess,save_path=self.path)
+            path = saver.save(sess,self.path)
             print("Model saved at {}".format(self.path))
             sess.close()
 
 
     def restore_model(self):
-        #tf.reset_default_graph()
+        tf.reset_default_graph()
         imported_meta = tf.train.import_meta_graph("model_final.meta")
         imported_meta.restore(self.session,tf.train.latest_checkpoint("./"))
         #self.session.run(p_val,feed_dict={p:np.array([0 for i in range(832)]).reshape(1,832)})

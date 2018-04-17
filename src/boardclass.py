@@ -1,6 +1,8 @@
 from colorama import Fore
 import numpy as np
 import boardlib
+import importlib
+importlib.reload(boardlib)
 import copy
 import sys
 import pdb

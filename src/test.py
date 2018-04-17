@@ -128,6 +128,8 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
         do = input()
 #        if do == "":
 #            do = prev
+        if do == "exit":
+            break
 #            
         if watching:
             if i == len(moves):
