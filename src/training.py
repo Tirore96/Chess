@@ -48,14 +48,15 @@ class Model:
                 
                 sess.run(optimizer,feed_dict=feed_dict_train)
                 
-               # score = sess.run(p_val,feed_dict={p:p_batch})
-               # print("score P: {}".format(score))
-               # 
-               # score = sess.run(q_val,feed_dict={q:q_batch})
-               # print("score Q: {}".format(score))
-               # 
-               # score = sess.run(r_val,feed_dict={r:r_batch})
-               # print("score R: {}".format(score))
+                if iterations % 10 == 0:
+                    score = sess.run(p_val,feed_dict={p:p_batch})
+                    print("score P: {}".format(score))
+                    
+                    score = sess.run(q_val,feed_dict={q:q_batch})
+                    print("score Q: {}".format(score))
+                    
+                    score = sess.run(r_val,feed_dict={r:r_batch})
+                    print("score R: {}".format(score))
                 #     
                # score = sess.run(weights_1)
                # print("score weights_1: {}".format(score))
@@ -64,15 +65,15 @@ class Model:
             end_time = time.time()
             print("Time used " + str(end_time-start_time))
             #optimize(iterations,train_data,batch_size,sess)
-            sess.run(tf.global_variables_initializer())
+            #sess.run(tf.global_variables_initializer())
             saver = tf.train.Saver()
-            path = saver.save(sess,self.path)
+            path = saver.save(sess,save_path=self.path)
             print("Model saved at {}".format(self.path))
             sess.close()
 
 
     def restore_model(self):
-        tf.reset_default_graph()
+        #tf.reset_default_graph()
         imported_meta = tf.train.import_meta_graph("model_final.meta")
         imported_meta.restore(self.session,tf.train.latest_checkpoint("./"))
         #self.session.run(p_val,feed_dict={p:np.array([0 for i in range(832)]).reshape(1,832)})

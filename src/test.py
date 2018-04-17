@@ -101,9 +101,10 @@ def test_one_hot_encoding():
             print(one_hot[index],int(abs(b_board[i,j]))+offset)
 
             
-def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,clear=True,set_pdb=False):
+def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,clear=True,set_pdb=False,against_AI=False,b=None):
     #pdb.set_trace()
-    b = boardclass.ChessBoard(player)
+    if b == None:
+        b = boardclass.ChessBoard(player)
     if fast_play == True:
         if fast_play_count == 0:
             length = len(moves)
@@ -156,7 +157,11 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
                 b.unmake_move()
             
             else:
-                b.make_move(do)
+                if b.player==player:
+                    b.make_move(do)
+                else:
+                    score,move = b.return_best_move(1)
+                    b.make_move(move)
                 #pdb.set_trace()
                 s = b.move_status
                 if not(s in boardclass.legal_outputs):
@@ -172,6 +177,7 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
             clear_output()
         b.show_board()
         print(b.move_status)
+        print(b.capture_status)
         sys.stdout.flush()
         count += 1
         i = i + 1

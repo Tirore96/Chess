@@ -13,7 +13,6 @@ one_arr = [[1 for i in range(8)] for j in range(8)]
 
     
     
-    
 
 #from numpy cimport ndarray
 #cimport numpy as np_c
