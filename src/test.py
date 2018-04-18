@@ -171,20 +171,15 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
                     score,move = b.return_best_move(1)
                     b.make_move(move)
                 #pdb.set_trace()
-                s = b.move_status
-                if not(s in boardclass.legal_outputs):
-                    print(s)
-                    print(len(s))
+                if not b.made_move:
                     print("wrong input")
                     sys.stdout.flush()
-
-
                     continue
 
         if clear:
             clear_output()
         b.show_board()
-        print(b.move_status)
+        print(b.made_move)
         print(b.capture_status)
         sys.stdout.flush()
         count += 1
@@ -206,7 +201,7 @@ def compare_boards_with_moves(moves,moves_long):
         board_true_move = chess.Move.from_uci(moves_long[i])
         board_true.push(board_true_move)
         is_equal,status = compare_boards(board_mine.board[-1],board_true)
-        if not is_equal:
+        if not is_equal or (not board.mine_made_move):
             status = status + "Previous moves: {0}, reached {1} out of {2}. Move is {3}".format(str(moves[i-lookback:i]),i,length_moves,moves_long[i])
             index = i
             #for _ in range(5):

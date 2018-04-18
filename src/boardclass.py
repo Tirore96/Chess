@@ -19,7 +19,7 @@ pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","
 piece_owner = [0,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1]
 list_letters = ['a','b','c','d','e','f','g','h']
 list_numbers = list(map(str,list((range(1,9)))))
-legal_outputs = ["pawn_move","pawn_move,en-passant","king_move",'king_move,castling,kingside','king_move,castling,queenside','en-passant','']
+#legal_outputs = ["pawn_move","pawn_move,en-passant","king_move",'king_move,castling,kingside','king_move,castling,queenside','en-passant','']
 en_passant = ["c7c5","a2a3","c5c4","b2b4","c4b3"]
 zero_line = [0 for _ in range(8)]
 move_zero_arr = [0 for i in range(8*8)]
@@ -171,7 +171,7 @@ class ChessBoard:
         self.player_positions = create_player_positions()
         self.chess_status = create_chess_status()
         self.player = player
-        self.move_status = ""
+        self.made_move=None 
         self.capture_status = []
         self.model = training.Model(path)
         self.player_in_chess = None
@@ -181,26 +181,29 @@ class ChessBoard:
 
         if self.player_in_chess != None:
             print("Cannot make move. Player {} is in chess".format(self.player))
+            pdb.set_trace()
             
         else:
             self.python_board.push(chess.Move.from_uci(move))
-            self.board ,self.move_status ,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
-        
-                                                                                                                                          move,
-                                                                                                                                          self.rights,
-                                                                                                                                          self.player,
-                                                                                                                                          self.king_positions,
-                                                                                                                                          self.player_positions,
-                                                                                                                                          self.chess_status)
+            self.board ,self.made_move,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
+                                                            move,
+                                                            self.rights,
+                                                            self.player,
+                                                            self.king_positions,
+                                                            self.player_positions,
+                                                            self.chess_status)
         
             not_checkmate = boardlib.legal_move_exists(self.board,self.rights,self.player,
-                                        self.king_positions,self.player_positions,
-                                        self.chess_status,boardlib.all_moves)
+                                                       self.king_positions,self.player_positions,
+                                                       self.chess_status,boardlib.all_moves)
+            
             if not not_checkmate:
                 self.player_in_chess = self.player
+                
     def unmake_move(self):
+        self.player_in_chess = None
         self.python_board.pop()
-        self.board,self.move_status,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
+        self.board,self.made_move,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
                                                                                                                                             self.rights,
                                                                                                                                             self.player,
                                                                                                                                             self.king_positions,

@@ -5,23 +5,17 @@ import pdb
 import copy
 import sys
 
-
 all_squares = [[i,j] for i in range(8) for j in range(8)]
 all_moves = [i+j for i in all_squares for j in all_squares]
 zero_arr = np.array([[0 for i in range(8)] for j in range(8)])
 one_arr = [[1 for i in range(8)] for j in range(8)]
 
-    
-    
-
-#from numpy cimport ndarray
-#cimport numpy as np_c
 pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
 promotions = {'r':1,'n':2,'b':3,'q':4}
 piece_owner = [0,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1]
-list_letters = ['a','b','c','d','e','f','g','h']
-list_numbers = list(map(str,list((range(1,9)))))
-legal_outputs = ["pawn_move","pawn_move,en-passant","king_move",'king_move,castling,kingside','king_move,castling,queenside','en-passant','']
+#list_letters = ['a','b','c','d','e','f','g','h']
+#list_numbers = list(map(str,list((range(1,9)))))
+#legal_outputs = ["pawn_move","pawn_move,en-passant","king_move",'king_move,castling,kingside','king_move,castling,queenside','en-passant','']
 en_passant = ["c7c5","a2a3","c5c4","b2b4","c4b3"]
 zero_line = [0 for _ in range(8)]
 
@@ -298,7 +292,7 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
         promotion = move[4] 
     if move_format == "alg":
         if has_promotion:
-            move = move[:-1]#.replace(promotion,"")
+            move = move[:-1]
         move = algebraic_to_arr_indices(move)
         
     x_1_alg,y_1_alg,x_2_alg,y_2_alg = move
@@ -312,7 +306,7 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
     enemy_index = 1 if player == 1 else 0
     capture_status = []
     if legal_move:
-        index = cur_board[x_1_alg,y_1_alg]#c_get_from_square_index(x_1_alg,y_1_alg,cur_board)
+        index = cur_board[x_1_alg,y_1_alg]
         piece = pieces[index]
         aux_move = []
         capture = (piece_owner[cur_board[x_2_alg,y_2_alg]] == -player) or "en-passant" in status
@@ -334,49 +328,27 @@ def make_move(board,move,rights,player,king_pos,player_positions,chess_status,mo
             if aux_move[2] == -1:
                 #en-passant attack
                 pos_remove = [aux_move[0],aux_move[1]]
-               # print("remove",pos_remove)
             
                 cur_player_positions[enemy_index].remove(pos_remove)
             else:
                 pos_before = aux_move[0:2]
                 pos_after = aux_move[2:4]
-               # print("remove",pos_before)
-               # print("append",pos_after)
 
                 cur_player_positions[player_index].remove(pos_before)
                 cur_player_positions[player_index].append(pos_after)
         original_move_before = move[0:2]
         original_move_after = move[2:4]  
-        #print("remove",original_move_before)
-        #print("append",original_move_after)
-        #except:
-        #    print(original_move_before)
-        #    print(player_positions[-1][player_index])
-        #  #  print(player_positions[-2][player_index])
-        #    print(player_index)
-
-
 
         cur_player_positions[player_index].append(([x_2_alg,y_2_alg]))    
-        
-#        if capture:
-#            cur_player_positions[enemy_index].remove(([x_2_alg,y_2_alg]))
-            #enemy lost a player
-           # try: 
-           #     cur_player_positions[enemy_index].remove(([x_2_alg,y_2_alg]))    
-           # except:
-           #     pdb.set_trace()
-
-
         
         board.append(cur_board)
         rights.append(cur_rights)
         king_pos.append(cur_king_pos)
         player_positions.append(cur_player_positions)
         chess_status.append(now_in_chess)
+        return board,True,rights,-player,king_pos,player_positions,chess_status,capture_status
     else:
-        return board,"did not make move",rights,player,king_pos,player_positions,chess_status,capture_status
-    return board,status,rights,-player,king_pos,player_positions,chess_status,capture_status
+        return board,False,rights,player,king_pos,player_positions,chess_status,capture_status
 
 def update_king_pos(king_pos,player,x,y):
     king_pos[player] = [x,y]

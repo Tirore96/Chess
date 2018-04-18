@@ -121,25 +121,28 @@ def gen_pqr_tuples(path,limit=-1):
         
     counter =0
     for i in range(limit):
+        all_states_encoded = []
         board = boardclass.ChessBoard(-1)
+        encoded_state = board.one_hot_encode_board()
+        all_states_encoded.append(encoded_state)
         for a_move in move_list_2d_curated[i]:
- #           print(a_move)
-            p_board_encoded = board.one_hot_encode_board()
-            r_board_encoded = encode_board_after_random_move(board)
+            r_board_encoded,board = encode_board_after_random_move(board)
             board.make_move(a_move)
-            q_board_encoded = board.one_hot_encode_board()
-            p.append(p_board_encoded)
-            q.append(q_board_encoded)
+            encoded_state = board.one_hot_encode_board()
+            all_states_encoded.append(encoded_state)
             r.append(r_board_encoded)
-            #print(board.move_status,counter)
-            if board.move_status == "did not make move":
+
+            if not board.made_move: 
                 print("ERROR did not make move in gen_pqr_tupes")
                 return a_move_list
-            
+        p.extend(all_states_encoded[:-1])
+        q.extend(all_states_encoded[1:])
+        
+     
         counter = counter + 1
         if counter % 50 == 0:
-            print("{} out of {}".format(counter,limit))#str(counter) + " out of " + str(curated_len))
-            
+            print("{} out of {}".format(counter,limit))
+       
     return p,q,r
             
             
@@ -150,7 +153,7 @@ def encode_board_after_random_move(b):
     b.make_move(moves[index])
     one_hot = b.one_hot_encode_board()
     b.unmake_move()
-    return one_hot
+    return one_hot,b
         
 
 def file_to_training_data(path):
