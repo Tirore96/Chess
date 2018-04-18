@@ -12,22 +12,6 @@ import chess
 import chess.svg
 from IPython.display import SVG
 
-all_squares = [[i,j] for i in range(8) for j in range(8)]
-all_moves = [i+j for i in all_squares for j in all_squares]
-pieces = ["Empty","Rook","Knight","Bishop","Queen","King","Pawn","Pawn","King","Queen","Bishop","Knight","Rook"]
-
-piece_owner = [0,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1]
-list_letters = ['a','b','c','d','e','f','g','h']
-list_numbers = list(map(str,list((range(1,9)))))
-#legal_outputs = ["pawn_move","pawn_move,en-passant","king_move",'king_move,castling,kingside','king_move,castling,queenside','en-passant','']
-en_passant = ["c7c5","a2a3","c5c4","b2b4","c4b3"]
-zero_line = [0 for _ in range(8)]
-move_zero_arr = [0 for i in range(8*8)]
-flattened_zero_arr = np.zeros((8,8))
-flattened_board = np.zeros((8,8,7),dtype=int)
-rights_zero_arr = np.zeros((8,8,2),dtype=int)
-true_board_to_my_board_dict = {'.':0,'r': 1,'n': 2,'b': 3,'q': 4,'k': 5,'p' : 6,'R': -1,'N': -2,'B': -3,'Q': -4,'K': -5, 'P': -6 }
-
 def curate_pgn_string(s):
     f = ["\n","+","Q","N","-","R","x","B","K","#"]
     for i in f:
@@ -38,11 +22,6 @@ def curate_pgn_string(s):
     except:
         s_list = s_list
     return s_list
-#path = "../extracted/two.txt"
-#f = open(path,"r")
-#s = f.read()
-#curated = curate_pgn_string_from_file(s)
-
 
 def file_to_move_lists(path,groundtruth=False):
     file = open(path,"r")
@@ -54,8 +33,6 @@ def file_to_move_lists(path,groundtruth=False):
         for i in remove_chars:
             file_string = file_string.replace(i,"")
     move_list = file_string.split("\n")
-  #  results = []
-  #  move_list = [i for i in move_list if i not in results]
     move_list_2d = [i.split(" ") for i in move_list]
     move_size = 4
     remove_elements = [" ",""]
@@ -67,10 +44,8 @@ def file_to_move_lists(path,groundtruth=False):
     file.close()
     return move_list_2d_curated
 
-
 #Creates a new board
 def create_board(): 
-    #pdb.set_trace()
     val = 0
     board = np.array([[val for j in range(8)] for i in range(8)])
     for i in range(8):
@@ -143,25 +118,22 @@ def get_from_square_player(i,j,board):
 
 def pp_board(board):
     for i in range(8):
-        print(Fore.BLACK + list_numbers[7-i],end="\t")
+        print(Fore.BLACK + boardlib.list_numbers[7-i],end="\t")
         for j in range(8):
-            player = piece_owner[board[i,j]]
+            player = boardlib.piece_owner[board[i,j]]
             if player == 0:
                 print(Fore.BLACK + "_",end="\t")
             else: 
-                piece = pieces[board[i,j]]
+                piece = boardlib.pieces[board[i,j]]
                 if player== 1:
                     print(Fore.BLUE + piece,end="\t")
                 else:
                     print(Fore.BLACK + piece,end="\t")
         print("\n")
     print("",end="\t")
-    for i in list_letters:
+    for i in boardlib.list_letters:
         print(Fore.BLACK + i,end="\t")
     sys.stdout.flush()
-#add alpha beta pruning
-
-
 
 class ChessBoard:
     def __init__(self,player,path="model_final"):
@@ -171,14 +143,14 @@ class ChessBoard:
         self.player_positions = create_player_positions()
         self.chess_status = create_chess_status()
         self.player = player
-        self.made_move=None 
+        self.made_move=None
+        self.unmade_move=None
         self.capture_status = []
         self.model = training.Model(path)
         self.player_in_chess = None
         self.python_board = chess.Board()
     
     def make_move(self,move):
-
         if self.player_in_chess != None:
             print("Cannot make move. Player {} is in chess".format(self.player))
             pdb.set_trace()
@@ -199,11 +171,11 @@ class ChessBoard:
             
             if not not_checkmate:
                 self.player_in_chess = self.player
-                
+
     def unmake_move(self):
         self.player_in_chess = None
         self.python_board.pop()
-        self.board,self.made_move,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
+        self.board,self.unmade_move,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
                                                                                                                                             self.rights,
                                                                                                                                             self.player,
                                                                                                                                             self.king_positions,
@@ -247,21 +219,11 @@ class ChessBoard:
     def train_model(self,iterations,train_data,batch_size):
         self.model.run_session(iterations,train_data,batch_size)
     
-    
-    def show_weights(self):
-        val = self.model.session.run(weights_1)
-        print(val)
-        
     def restore_model(self):
         self.model.restore_model()
         
-    def restore_default(self):
-        tf.reset_default_graph()
-        
     def close_session(self):
         self.model.session.close()
-
-
 
     def evaluate_board(self):
         return self.model.evaluate(self)
@@ -273,4 +235,3 @@ class ChessBoard:
         return boardlib.generate_all_legal_moves(self.board,self.rights,self.player,
                                         self.king_positions,self.player_positions,
                                         self.chess_status,boardlib.all_moves)
-        

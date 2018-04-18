@@ -8,9 +8,10 @@ import pdb
 import time
 import copy
 from multiprocessing import Pool
-
-
 from IPython.display import clear_output
+
+true_board_to_my_board_dict = {'.':0,'r': 1,'n': 2,'b': 3,'q': 4,'k': 5,'p' : 6,'R': -1,'N': -2,'B': -3,'Q': -4,'K': -5, 'P': -6 }
+
 
 def perft(b,depth):
     if depth == 0:
@@ -33,11 +34,9 @@ def perft_pool(b,depth):
     for i in moves:
         b.make_move(i)
         board_list.append((copy.deepcopy(b),depth-1))
-        #nodes = nodes + perft(b,depth-1)
         b.unmake_move()
     p = Pool()
     retvals = p.starmap_async(perft,board_list)
-    #print(retvals.get())
     return sum(retvals.get()) 
 
 def perft_test(depth):
@@ -53,7 +52,6 @@ def wrong_moves(correct_board,my_board, depth,path):
         return 1
 
     nodes = 0
-    #pdb.set_trace()
     correct_legal_moves = list(map(correct_board.lan,correct_board.legal_moves))
     my_legal_moves = my_board.generate_legal_moves()
     concated_moves = ""
@@ -102,9 +100,7 @@ def test_one_hot_encoding():
             index = index + int(abs(b_board[i,j]))
             print(one_hot[index],int(abs(b_board[i,j]))+offset)
 
-            
 def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,clear=True,set_pdb=False,against_AI=False,b=None):
-    #pdb.set_trace()
     if b == None:
         b = boardclass.ChessBoard(player)
     if fast_play == True:
@@ -132,11 +128,9 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
             print("Player {} lost".format(b.player))
             break
         do = input()
-#        if do == "":
-#            do = prev
         if do == "exit":
             break
-#            
+            
         if watching:
             if i == len(moves):
                 stop = True
@@ -170,7 +164,6 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
                 else:
                     score,move = b.return_best_move(1)
                     b.make_move(move)
-                #pdb.set_trace()
                 if not b.made_move:
                     print("wrong input")
                     sys.stdout.flush()
@@ -184,8 +177,6 @@ def start_game(player,moves=[],watching=False,fast_play=False,fast_play_count=0,
         sys.stdout.flush()
         count += 1
         i = i + 1
-    #clear_output()
-    #b.show_board()
     
 def compare_boards_with_moves(moves,moves_long):
     board_mine = boardclass.ChessBoard(-1)
@@ -193,23 +184,15 @@ def compare_boards_with_moves(moves,moves_long):
     board_true = chess.Board()
     length_moves = len(moves)
     for i in range(length_moves):
-      #  if i == 99 and moves[i] == 'd2c1':
-      #      pdb.set_trace()
-     #   print(moves[i])
         board_mine.make_move(moves[i])
         
         board_true_move = chess.Move.from_uci(moves_long[i])
         board_true.push(board_true_move)
         is_equal,status = compare_boards(board_mine.board[-1],board_true)
-        if not is_equal or (not board.mine_made_move):
+        if (not is_equal) or (not board_mine.made_move):
+            pdb.set_trace()
             status = status + "Previous moves: {0}, reached {1} out of {2}. Move is {3}".format(str(moves[i-lookback:i]),i,length_moves,moves_long[i])
             index = i
-            #for _ in range(5):
-            #    index = index - 1
-            #    board_mine.unmake_move()
-            #    board_true.pop()
-            #    print(board_mine.board[-1])
-            #    print(board_true)               
             return False,status,i
     return True,"",-1
 
@@ -218,14 +201,13 @@ def compare_boards(board_mine,board_true):
         for j in range(8):
             square_mine = board_mine[i,j]
             index_true = index_into_python_board(board_true,i,j)
-            square_true = boardclass.true_board_to_my_board_dict[index_true]
+            square_true = true_board_to_my_board_dict[index_true]
             if square_mine != square_true:
                 print("my board")
                 print(board_mine)
                 print("ground truth")
                 print(board_true)
                 status = "At {0}, {1}, expected {2}, got {3}. ".format(i,j,square_true,square_mine)
-     #           status = "At " + str(i) + ", " + str(j) + ", expected" + str(square_true) + ", got " + str(square_mine)
                 return False,status
     return True,""
     
@@ -240,14 +222,12 @@ def index_into_python_board(board,i,j):
     return piece_str
 
 def compare_boards_with_file(path,index=0):
-#    moves_lists = boardclass.file_to_move_lists(path)
     moves_lists_long = boardclass.file_to_move_lists(path,groundtruth=True)   
     moves_length = len(moves_lists_long)
     troubling_moves = []
     troubling_index = -1
     for i in range(index,moves_length):
         retval,status,index = compare_boards_with_moves(moves_lists_long[i],moves_lists_long[i])
-       # print(moves_lists_long[i])
         if not retval:
             print(status)
             troubling_moves = moves_lists_long[i]
@@ -257,4 +237,3 @@ def compare_boards_with_file(path,index=0):
         if i %10 == 0:
             print("{0} of of {1}".format(i,moves_length-1))
     return troubling_moves,troubling_index
-    

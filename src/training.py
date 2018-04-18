@@ -4,14 +4,11 @@ import boardclass
 import random
 import time
 import numpy as np
-#Credit to Hvass Laboratories
+
 input_height = 32
 input_width = 26
 input_size = input_height * input_width
 num_squares = 8 *8 
-#x = tf.placeholder(tf.float32,[None,input_size])
-
-#y_true_cls = tf.argmax(y_true,axis=2)
 filter_size1 = 2
 num_filters1 = 3
 
@@ -20,7 +17,6 @@ num_filters2 = 6
 last_connected_output = 2048
 
 fc_size = 128
-
 
 batch_size = 1
 learning_rate = 1e-5
@@ -48,23 +44,18 @@ class Model:
                 
                 sess.run(optimizer,feed_dict=feed_dict_train)
                 
-                if i == iterations-1 :
-                    score = sess.run(p_val,feed_dict={p:p_batch})
-                    print("score P: {}".format(score))
-                    
-                    score = sess.run(q_val,feed_dict={q:q_batch})
-                    print("score Q: {}".format(score))
-                    
-                    score = sess.run(r_val,feed_dict={r:r_batch})
-                    print("score R: {}".format(score))
-                #     
-               # score = sess.run(weights_1)
-               # print("score weights_1: {}".format(score))
-               # acc = sess.run(reduced_likelihood,feed_dict=feed_dict_train)*100
-               # print("Optimization Iteration {}, Training Accuracy {}".format(i,acc))#+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
+                #if i == iterations-1 :
+                #    score = sess.run(p_val,feed_dict={p:p_batch})
+                #    print("score P: {}".format(score))
+                #    
+                #    score = sess.run(q_val,feed_dict={q:q_batch})
+                #    print("score Q: {}".format(score))
+                #    
+                #    score = sess.run(r_val,feed_dict={r:r_batch})
+                #    print("score R: {}".format(score))
+
             end_time = time.time()
-            print("Time used " + str(end_time-start_time))
-            #optimize(iterations,train_data,batch_size,sess)
+            print("Time used to train model" + str(end_time-start_time))
             sess.run(tf.global_variables_initializer())
             saver = tf.train.Saver()
             path = saver.save(sess,self.path)
@@ -76,15 +67,6 @@ class Model:
         tf.reset_default_graph()
         imported_meta = tf.train.import_meta_graph("model_final.meta")
         imported_meta.restore(self.session,tf.train.latest_checkpoint("./"))
-        #self.session.run(p_val,feed_dict={p:np.array([0 for i in range(832)]).reshape(1,832)})
-#        saver = tf.train.Saver()
-#        with tf.Session as sess:
-#            saver.restore(sess,self.path)
-#            
-#        self.session = tf.Session()
-#        saver.restore(self.session,self.path)    
-#        self.session.run(tf.global_variables_initializer())
-
 
     def evaluate(self,board):
         p_cur = board.one_hot_encode_board()
@@ -101,7 +83,6 @@ def new_weights(shape):
 
 def new_biases(length):
     return tf.Variable(tf.constant(bias_val,shape=[length]))
-
 
 def flatten_layer(layer):
     layer_shape = layer.get_shape()
@@ -212,10 +193,6 @@ class TrainingData_PQR:
         self.p = np.asarray(p,dtype=np.float32).reshape((-1,832))
         self.q = np.asarray(q,dtype=np.float32).reshape((-1,832))
         self.r = np.asarray(r,dtype=np.float32).reshape((-1,832))       
-#        self.x_shape = self.train_x.shape
-#        self.y_shape = self.train_y.shape       
-#        self.x_dtype = self.train_x.dtype
-#        self.y_dtype = self.train_y.dtype
         self.index  = 0
         self.len = len(self.p)
         if len(self.p) != len(self.q) or len(self.q) != len(self.r):
@@ -232,8 +209,6 @@ class TrainingData_PQR:
             return retval_p,retval_q,retval_r        
 
 
-
-
 weights_1 = new_weights(shape=[input_size,input_size])
 biases_1  = new_weights(shape=[batch_size,input_size])
 
@@ -245,7 +220,6 @@ biases_3  = new_weights(shape=[batch_size,last_connected_output])
 
 weights_4 = new_weights(shape=[last_connected_output,1])
 biases_4  = new_weights(shape=[batch_size])
-
 
 weights = [weights_1,weights_2,weights_3,weights_4]
 biases  = [biases_1,biases_2,biases_3,biases_4]
@@ -272,23 +246,9 @@ p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)
 q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
 r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
 
-#(q_val-p_val): q_val optimized to be negative, p_val optimized to be positive
-#k*tf.square(q_val + p_val): p_val = -q_val. with q_val as negative and p_val as positive, minimize the squared sum.
-#k*tf.square(q_val - r_val*r_worse_than_q): adjust r_val to be half of what q_val is (since r_val should be is less negative than q_val
 
-likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
+neg_likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
 
-#tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
-reduced_likelihood = tf.reduce_sum(likelihood)
-reduced_neg_likelihood = tf.negative(reduced_likelihood)
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
 
-#def run_session(iterations,train_data,batch_size):
-#    session = tf.Session()
-#    session.run(tf.global_variables_initializer())
-#    optimize(iterations,train_data,batch_size,session)
-#    saver = tf.train.Saver()
-#    path = saver.save(session,"/tmp/model.ckpt")
-#    print("Model saved at {}".format(path))
-#    session.close()
-#    return 
+reduced_neg_likelihood = tf.reduce_sum(neg_likelihood)
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
