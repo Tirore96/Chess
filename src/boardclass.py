@@ -159,7 +159,7 @@ class ChessBoard:
         else:
             if sync:
                 self.python_board.push(chess.Move.from_uci(move))
-                _,_,x_2,y_2 = boardlib.algebraic_to_arr_indices(move)
+                _,_,x_2,y_2 = boardlib.algebraic_to_arr_indices(move[:4])
                 piece_color = self.player == -1
             
                 #7 minus x_2 because algebraic_to_arr_indicies() assumes top-down indexing, but we want bottom-up
@@ -208,25 +208,24 @@ class ChessBoard:
         
         return flattened_board_copy.flatten()
     
-    def negamax(self,depth,move):
-        if depth==0:
-            return self.evaluate_board(),move
-        
+    def negamax(self,depth):
         legal_moves = self.generate_legal_moves()
         score = -sys.maxsize
-        move = ""
         for i in legal_moves:
             self.make_move(i,sync=False)
-            cur_score,cur_move = self.negamax(depth-1,i)
-            cur_score = cur_score * -1
+            if depth==0:
+                cur_score = self.evaluate_board()
+            else:
+                cur_score,_ = self.negamax(depth-1)
+                cur_score = cur_score * -1
             self.unmake_move()
             if cur_score > score:
                 score = cur_score
-                move = cur_move
+                move = i
         return score,move
-
+               
     def return_best_move(self,depth):
-        return self.negamax(depth,"")
+        return self.negamax(depth)
     
     def train_model(self,iterations,train_data,batch_size):
         self.model.run_session(iterations,train_data,batch_size)
