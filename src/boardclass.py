@@ -136,7 +136,7 @@ def pp_board(board):
     sys.stdout.flush()
 
 class ChessBoard:
-    def __init__(self,player,path="model_final"):
+    def __init__(self,player,path="model_final",sync_board_on_pop=False):
         self.board = create_board()
         self.rights = create_rights()
         self.king_positions = create_king_positions()
@@ -149,14 +149,25 @@ class ChessBoard:
         self.model = training.Model(path)
         self.player_in_chess = None
         self.python_board = chess.Board()
+        self.sync_board_on_pop = sync_board_on_pop
     
-    def make_move(self,move):
+    def make_move(self,move,sync=True):
         if self.player_in_chess != None:
             print("Cannot make move. Player {} is in chess".format(self.player))
             pdb.set_trace()
             
         else:
-            self.python_board.push(chess.Move.from_uci(move))
+            if sync:
+                self.python_board.push(chess.Move.from_uci(move))
+                _,_,x_2,y_2 = boardlib.algebraic_to_arr_indices(move)
+                piece_color = self.player == -1
+            
+                #7 minus x_2 because algebraic_to_arr_indicies() assumes top-down indexing, but we want bottom-up
+                square = chess.square(y_2,7-x_2)
+                piece = chess.Piece(self.python_board.piece_at(square).piece_type,piece_color)
+    
+                self.python_board.set_piece_at(square,piece)
+            
             self.board ,self.made_move,self.rights ,self.player ,self.king_positions ,self.player_positions ,self.chess_status,self.capture_status = boardlib.make_move(self.board,
                                                             move,
                                                             self.rights,
@@ -174,7 +185,8 @@ class ChessBoard:
 
     def unmake_move(self):
         self.player_in_chess = None
-        self.python_board.pop()
+        if self.sync_board_on_pop:
+            self.python_board.pop()
         self.board,self.unmade_move,self.rights,self.player,self.king_positions,self.player_positions,self.chess_status = boardlib.unmake_move(self.board,
                                                                                                                                             self.rights,
                                                                                                                                             self.player,
@@ -204,7 +216,7 @@ class ChessBoard:
         score = -sys.maxsize
         move = ""
         for i in legal_moves:
-            self.make_move(i)
+            self.make_move(i,sync=False)
             cur_score,cur_move = self.negamax(depth-1,i)
             cur_score = cur_score * -1
             self.unmake_move()
