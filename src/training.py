@@ -4,6 +4,7 @@ import boardclass
 import random
 import time
 import numpy as np
+import pdb
 
 input_height = 32
 input_width = 26
@@ -103,7 +104,7 @@ def gen_pqr_tuples(path,limit=-1):
     counter =0
     for i in range(limit):
         all_states_encoded = []
-        board = boardclass.ChessBoard(-1)
+        board = boardclass.ChessBoard(-1,only_board=True)
         encoded_state = board.one_hot_encode_board()
         all_states_encoded.append(encoded_state)
         for a_move in move_list_2d_curated[i]:
