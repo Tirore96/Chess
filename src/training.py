@@ -5,6 +5,8 @@ import random
 import time
 import numpy as np
 import pdb
+import os
+import glob
 
 input_height = 32
 input_width = 26
@@ -29,48 +31,57 @@ weights_val = 0.5
 bias_val = 0.5
 
 class Model:
-    def __init__(self,path="model_final"):
+    def __init__(self):
         self.session = tf.Session()
-        self.path = path
+        self.session.run(tf.global_variables_initializer())
     
-    def run_session(self,iterations,train_data,batch_size):
-        with tf.Session() as sess:
+    def run_session(self,train_data):
+        iterations = train_data.len
+        start_time = time.time()
+
+        for i in range(iterations):
+            p_batch,q_batch,r_batch = train_data.next_batch(1)
+            feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
             
-            sess.run(tf.global_variables_initializer())
-            start_time = time.time()
+            self.session.run(optimizer,feed_dict=feed_dict_train)
+            
+            #if i == iterations-1 :
+            #    score = sess.run(p_val,feed_dict={p:p_batch})
+            #    print("score P: {}".format(score))
+            #    
+            #    score = sess.run(q_val,feed_dict={q:q_batch})
+            #    print("score Q: {}".format(score))
+            #    
+            #    score = sess.run(r_val,feed_dict={r:r_batch})
+            #    print("score R: {}".format(score))
 
-            for i in range(iterations):
-                p_batch,q_batch,r_batch = train_data.next_batch(batch_size)
-                feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
+        end_time = time.time()
+        print("Time used to train model: " + str(end_time-start_time))
+        
+    def save(self,path):
+        #self.session.run(tf.global_variables_initializer())
+        saver = tf.train.Saver()
+        path_ret = saver.save(self.session,path)
+        print("Model saved at {}".format(path_ret))
+
+
+    def restore(self,path):
+        self.session = tf.Session()
+        saver = tf.train.Saver()
+        saver.restore(self.session,path)
+        
+    def delete_model_files(self,folder_path,prefix):
+        os.remove("{}/checkpoint".format(folder_path))
+        extended_paths = "{0}/{1}*".format(folder_path,prefix)
                 
-                sess.run(optimizer,feed_dict=feed_dict_train)
-                
-                #if i == iterations-1 :
-                #    score = sess.run(p_val,feed_dict={p:p_batch})
-                #    print("score P: {}".format(score))
-                #    
-                #    score = sess.run(q_val,feed_dict={q:q_batch})
-                #    print("score Q: {}".format(score))
-                #    
-                #    score = sess.run(r_val,feed_dict={r:r_batch})
-                #    print("score R: {}".format(score))
+        for filename in glob.glob(extended_paths):
+            os.remove(filename)
 
-            end_time = time.time()
-            print("Time used to train model" + str(end_time-start_time))
-            sess.run(tf.global_variables_initializer())
-            saver = tf.train.Saver()
-            path = saver.save(sess,self.path)
-            print("Model saved at {}".format(self.path))
-            sess.close()
-
-
-    def restore_model(self):
-        tf.reset_default_graph()
-        imported_meta = tf.train.import_meta_graph("model_final.meta")
-        imported_meta.restore(self.session,tf.train.latest_checkpoint("./"))
-
-    def evaluate(self,board):
-        p_cur = board.one_hot_encode_board()
+            #.model_checkpoint_path
+            #imported_meta = tf.train.import_meta_graph(self.path)#"model_final.meta")
+            #imported_meta.restore(self.session,tf.train.latest_checkpoint("../"))
+    #
+    def evaluate(self,p_cur):
         p_cur = p_cur.reshape((1,832))
         score = self.session.run(p_val,feed_dict={p:p_cur})
         return score
@@ -123,6 +134,7 @@ def gen_pqr_tuples(path,limit=-1):
      
         counter = counter + 1
         if counter % 50 == 0:
+            print("was here")
             print("{} out of {}".format(counter,limit))
        
     return p,q,r

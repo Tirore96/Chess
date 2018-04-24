@@ -1,0 +1,64 @@
+def generate_all_legal_moves(board,rights,player,king_pos, player_positions,chess_status,all_moves):
+
+    all_legal_moves = []
+    all_moves_len = len(all_moves)
+    for i in range(all_moves_len):
+        move = all_moves[i]
+        legal,_,_,_ = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])
+        if legal:
+            algebraic_move = arr_to_algebraic(move)
+            all_legal_moves.append(algebraic_move)
+    return all_legal_moves
+
+cpdef generate_all_legal_moves(list board,list rights,long player,list king_pos, list player_positions,list chess_status,list all_moves):
+
+    cpdef list all_legal_moves = []
+    cpdef int all_moves_len = len(all_moves)
+    cpdef int i
+    cpdef int legal
+    cpdef str algebraic_move
+    cpdef list move
+    for i in range(all_moves_len):
+        move = all_moves[i]
+        legal,_,_,_ = eval_legal_move(board,move,rights,player,king_pos,player_positions,chess_status[-1])
+        if legal:
+            algebraic_move = arr_to_algebraic(move)
+            all_legal_moves.append(algebraic_move)
+    return all_legal_moves
+
+
+
+def c_check_if_squares_attackable(board, player,sensitive_squares,
+                                    rights,player_positions):
+    enemy_index = 1 if player == 1 else 0
+    enemy_positions = player_positions[enemy_index]
+    enemy_len = len(enemy_positions)
+    sensitive_len = len(sensitive_squares)
+    #multi thread?
+    for i in range(enemy_len):
+        for j in range(sensitive_len):
+            move = enemy_positions[i] + sensitive_squares[j]
+            legal,status,_ = c_eval_pseudo_legal_move(board,move,rights,-player,player_positions)
+            if legal:
+                return True
+    
+    return False
+
+cpdef c_check_if_squares_attackable(np_c.ndarray[long,ndim=2] board, long player,list sensitive_squares,
+                                   np_c.ndarray[long,ndim=2] rights,list player_positions):
+    cpdef long enemy_index = 1 if player == 1 else 0
+    cpdef list enemy_positions = player_positions[enemy_index]
+    cpdef int i,j,legal
+    cpdef int enemy_len = len(enemy_positions)
+    cpdef int sensitive_len = len(sensitive_squares)
+    cpdef list move
+    cpdef str status
+    #multi thread?
+    for i in range(enemy_len):
+        for j in range(sensitive_len):
+            move = enemy_positions[i] + sensitive_squares[j]
+            legal,status,_ = c_eval_pseudo_legal_move(board,move,rights,-player,player_positions)
+            if legal:
+                return True
+    
+    return False

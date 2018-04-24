@@ -136,7 +136,7 @@ def pp_board(board):
     sys.stdout.flush()
 
 class ChessBoard:
-    def __init__(self,player,path="model_final",sync_board_on_pop=False,only_board=False):
+    def __init__(self,player=-1,sync_board_on_pop=False,only_board=False):
         self.board = create_board()
         self.rights = create_rights()
         self.king_positions = create_king_positions()
@@ -146,13 +146,16 @@ class ChessBoard:
         self.made_move=None
         self.unmade_move=None
         self.capture_status = []
-        self.model = training.Model(path)
+#        self.model = training.Model()
         self.player_in_chess = None
         self.only_board = only_board
         if not only_board:
             self.python_board = chess.Board()
         self.sync_board_on_pop = sync_board_on_pop and not only_board
     
+    def add_model(self,model):
+        self.model = model
+        
     def make_move(self,move,sync=True):
         if self.player_in_chess != None:
             print("Cannot make move. Player {} is in chess".format(self.player))
@@ -230,16 +233,17 @@ class ChessBoard:
         return self.negamax(depth)
     
     def train_model(self,iterations,train_data,batch_size):
-        self.model.run_session(iterations,train_data,batch_size)
+        self.model.run_session(iterations,train_data,batch_size,dont_save=False)
     
-    def restore_model(self):
-        self.model.restore_model()
-        
-    def close_session(self):
-        self.model.session.close()
-
+#    def restore_model(self):
+#        self.model.restore_model()
+#        
+#    def close_session(self):
+#        self.model.session.close()
+#
     def evaluate_board(self):
-        return self.model.evaluate(self)
+        p_cur = self.one_hot_encode_board()
+        return self.model.evaluate(p_cur)
         
     def show_board(self):
         pp_board(self.board[-1])
