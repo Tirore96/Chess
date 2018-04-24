@@ -214,15 +214,18 @@ class ChessBoard:
         return flattened_board_copy.flatten()
     
     def negamax(self,depth):
+        if depth==0:
+            return self.evaluate_board(),""
+                
         legal_moves = self.generate_legal_moves()
+        
         score = -sys.maxsize
         for i in legal_moves:
             self.make_move(i,sync=False)
-            if depth==0:
-                cur_score = self.evaluate_board()
-            else:
-                cur_score,_ = self.negamax(depth-1)
-                cur_score = cur_score * -1
+
+            cur_score,_ = self.negamax(depth-1)
+            cur_score = cur_score * -1
+                
             self.unmake_move()
             if cur_score > score:
                 score = cur_score
