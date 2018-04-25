@@ -6,7 +6,9 @@ import time
 import numpy as np
 import pdb
 import os
+import pickle
 import glob
+from multiprocessing import Pool
 
 input_height = 32
 input_width = 26
@@ -102,18 +104,46 @@ def flatten_layer(layer):
     layer_falt = tf.reshape(layer,[-1,num_features])
     return layer_falt, num_features
 
-def gen_pqr_tuples(path,limit=-1):
+
+def create_index_intervals(limit,split):
+    if limit < split:
+        return [(0,0)]
+    retarr = []
+    high_end = 0
+    offset = 0
+    pool_size = int(limit/split)
+    max_offset = pool_size * split
+    while offset < max_offset:
+        retarr.append((offset,pool_size))
+        offset = offset + pool_size
+    return retarr
+
+def gen_pqr_pool(path,limit,split):
+    move_list_2d_curated = boardclass.file_to_move_lists(path,groundtruth=True)
+    index_intervals = create_index_intervals(limit,split)
+    arr_inputs = [(move_list_2d_curated,index_intervals[i][0],index_intervals[i][1],i) for i in range(len(index_intervals))]
+    p = Pool()
+    retvals = p.starmap(gen_pqr_tuples,arr_inputs)
+ #   p = []
+ #   q = []
+ #   r = []
+ #   for i in retvals:
+ #       p.append(i[0])
+ #       q.append(i[1])       
+ #       r.append(i[2])           
+ #   return p,q,r
+
+def gen_pqr_tuples(move_list_2d_curated,offset,elements,id_num):
     p = []
     q = []
     r = []
 
-    move_list_2d_curated = boardclass.file_to_move_lists(path,groundtruth=True)
     curated_len = len(move_list_2d_curated)
-    if limit == -1:
-        limit = curated_len
+#    if limit == -1:
+#        limit = curated_len
         
     counter =0
-    for i in range(limit):
+    for i in range(offset,offset+elements):
         all_states_encoded = []
         board = boardclass.ChessBoard(-1,only_board=True)
         encoded_state = board.one_hot_encode_board()
@@ -133,11 +163,15 @@ def gen_pqr_tuples(path,limit=-1):
         
      
         counter = counter + 1
-        if counter % 50 == 0:
-            print("was here")
-            print("{} out of {}".format(counter,limit))
+#        if counter % 50 == 0:
+#            print("was here")
+#            print("{} out of {}".format(counter,limit))
+
+    bin_file = open("pickled/pickled_train_data.bin{}".format(id_num),mode='wb+')
+    pickle.dump([p,q,r],bin_file)
        
-    return p,q,r
+    print("{} is done now".format(id_num))
+#    return p,q,r
             
             
 def encode_board_after_random_move(b):

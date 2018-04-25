@@ -4,6 +4,7 @@ import test
 import boardclass
 import boardlib
 import importlib
+import training
 importlib.reload(boardlib)
 
 class TestMethods_index_into_python_board(unittest.TestCase):
@@ -43,6 +44,35 @@ class TestMethods_index_into_python_board(unittest.TestCase):
         self.assertEqual(test.index_into_python_board(self.board,1,0),"p")
         
         
+class Test_create_index_intervals(unittest.TestCase):        
+    
+    def test_split_less_than_limit(self):
+        split = 2
+        limit = 5
+        array = training.create_index_intervals(limit,split)
+        expected = [(0,1),(2,1)]
+        self.assertEqual(array,expected)       
+        
+    def test_split_less_than_limit(self):
+        split = 3
+        limit = 12
+        array = training.create_index_intervals(limit,split)
+        expected = [(0,4),(4,4),(8,4)]       
+        self.assertEqual(array,expected)
+        
+    def test_split_equals_one(self):
+        split = 1
+        limit = 5
+        array = training.create_index_intervals(limit,split)
+        expected = [(0,5)]       
+        self.assertEqual(array,expected)
+        
+    def test_split_larger_than_limit(self):
+        split = 5
+        limit = 2
+        array = training.create_index_intervals(limit,split)
+        expected = [(0,0)]       
+        self.assertEqual(array,expected)       
         
 class Test_bug_update_rights(unittest.TestCase):
     def setUp(self):
