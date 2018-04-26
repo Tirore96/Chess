@@ -29,7 +29,7 @@ r_worse_than_q = 2
 k = 15
 r_priority = k/2
 k_p = 20
-weights_val = 0.5
+weights_val = 0.2
 bias_val = 0.5
 
 class Model:
@@ -53,15 +53,15 @@ class Model:
             
             self.session.run(optimizer,feed_dict=feed_dict_train)
             
-            if 0 == iterations%20 :
-                score = self.session.run(p_val,feed_dict={p:p_batch})
-                print("score P: {}".format(score[0]))
+            if 0 == i%100 :
+                score = self.session.run(p_val,feed_dict={p:p_in})
+                print("score P: {}".format(score))
                 
-                score = self.session.run(q_val,feed_dict={q:q_batch})
-                print("score Q: {}".format(score[0]))
+                score = self.session.run(q_val,feed_dict={q:q_in})
+                print("score Q: {}".format(score))
                 
-                score = self.session.run(r_val,feed_dict={r:r_batch})
-                print("score R: {}".format(score[0]))
+                score = self.session.run(r_val,feed_dict={r:r_in})
+                print("score R: {}".format(score))
 
         end_time = time.time()
         print("Time used to train model: " + str(end_time-start_time))
@@ -324,10 +324,16 @@ r_input = tf.reshape(r,[-1,input_height,input_width,1])
 p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)  
 q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
 r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
+print(p_val)
 
+likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
 
-neg_likelihood = 10 * tf.square(p_val-q_val) + q_val# tf.sigmoid(p_val) + tf.sigmoid(p_val) + tf.square(p_val-q_val)#10*tf.sigmoid(q_val- p_val)* tf.sigmoid(tf.square(q_val)*tf.square( p_val))# - p_val + q_val#(q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
-
-
-reduced_neg_likelihood = tf.reduce_sum(neg_likelihood)
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
+#tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
+reduced_likelihood = tf.reduce_sum(likelihood)
+reduced_neg_likelihood = tf.negative(reduced_likelihood)
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
+#neg_likelihood = 10 * tf.square(p_val-q_val) + q_val# tf.sigmoid(p_val) + tf.sigmoid(p_val) + tf.square(p_val-q_val)#10*tf.sigmoid(q_val- p_val)* tf.sigmoid(tf.square(q_val)*tf.square( p_val))# - p_val + q_val#(q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
+#
+#
+#reduced_neg_likelihood = tf.reduce_sum(neg_likelihood)
+#optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
