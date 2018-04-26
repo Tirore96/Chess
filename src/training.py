@@ -37,25 +37,31 @@ class Model:
         self.session = tf.Session()
         self.session.run(tf.global_variables_initializer())
     
-    def run_session(self,train_data):
-        iterations = train_data.len
+    def run_session(self,file_fetcher,index=-1,fetch_index=False):
+        iterations = file_fetcher.max_id
         start_time = time.time()
+        if fetch_index:
+            p_batch,q_batch,r_batch = file_fetcher.fetch_index(index)
+        for i in range(len(p_batch)):
 
-        for i in range(iterations):
-            p_batch,q_batch,r_batch = train_data.next_batch(1)
-            feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
+     #       else:
+     #           p_batch,q_batch,r_batch = file_fetcher.fetch()           
+            p_in = p_batch[i].reshape(1,832)
+            q_in = q_batch[i].reshape(1,832)           
+            r_in = r_batch[i].reshape(1,832)               
+            feed_dict_train = {p:p_in,q:q_in,r:r_in}
             
             self.session.run(optimizer,feed_dict=feed_dict_train)
             
-            #if i == iterations-1 :
-            #    score = sess.run(p_val,feed_dict={p:p_batch})
-            #    print("score P: {}".format(score))
-            #    
-            #    score = sess.run(q_val,feed_dict={q:q_batch})
-            #    print("score Q: {}".format(score))
-            #    
-            #    score = sess.run(r_val,feed_dict={r:r_batch})
-            #    print("score R: {}".format(score))
+            if 0 == iterations%20 :
+                score = self.session.run(p_val,feed_dict={p:p_batch})
+                print("score P: {}".format(score[0]))
+                
+                score = self.session.run(q_val,feed_dict={q:q_batch})
+                print("score Q: {}".format(score[0]))
+                
+                score = self.session.run(r_val,feed_dict={r:r_batch})
+                print("score R: {}".format(score[0]))
 
         end_time = time.time()
         print("Time used to train model: " + str(end_time-start_time))
@@ -233,7 +239,33 @@ class TrainingData:
             retval_y = self.train_y[self.index:self.index+size]       
             self.index = self.index + size
             return retval_x,retval_y
-        
+
+class File_fetcher:
+    def __init__(self,prefix,max_id):
+        self.prefix = prefix
+        self.max_id = max_id
+        self.cur_id = -1 
+    
+    def fetch(self):
+        if self.cur_id +1 < self.max_id:
+            self.cur_id = self.cur_id = 1
+            bin_file = open(self.prefix+str(self.cur_id),mode='rb')
+            train_data = pickle.load(bin_file)
+            bin_file.close()
+            return train_data
+        else:
+            print("Out of bounds")
+            return []
+    def fetch_index(self,index):
+            bin_file = open(self.prefix+str(index),mode='rb')
+            train_data = pickle.load(bin_file)
+            bin_file.close()
+            return train_data
+    
+    def set_lastcount(self,id_num):
+        self.cur_id = id_num
+    
+    
 class TrainingData_PQR:
     def __init__(self,path,limit=-1):
         p,q,r = gen_pqr_tuples(path,limit)
@@ -294,7 +326,7 @@ q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)
 r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
 
 
-neg_likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
+neg_likelihood = 10 * tf.square(p_val-q_val) + q_val# tf.sigmoid(p_val) + tf.sigmoid(p_val) + tf.square(p_val-q_val)#10*tf.sigmoid(q_val- p_val)* tf.sigmoid(tf.square(q_val)*tf.square( p_val))# - p_val + q_val#(q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
 
 
 reduced_neg_likelihood = tf.reduce_sum(neg_likelihood)

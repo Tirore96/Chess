@@ -213,9 +213,9 @@ class ChessBoard:
         
         return flattened_board_copy.flatten()
     
-    def negamax(self,depth):
+    def negamax(self,depth,player):
         if depth==0:
-            return self.evaluate_board(),""
+            return self.evaluate_board()*player,""
                 
         legal_moves = self.generate_legal_moves()
         
@@ -223,7 +223,7 @@ class ChessBoard:
         for i in legal_moves:
             self.make_move(i,sync=False)
 
-            cur_score,_ = self.negamax(depth-1)
+            cur_score,_ = self.negamax(depth-1,-player)
             cur_score = cur_score * -1
                 
             self.unmake_move()
@@ -233,7 +233,7 @@ class ChessBoard:
         return score,move
                
     def return_best_move(self,depth):
-        return self.negamax(depth)
+        return self.negamax(depth,self.player)
     
     def train_model(self,iterations,train_data,batch_size):
         self.model.run_session(iterations,train_data,batch_size,dont_save=False)
