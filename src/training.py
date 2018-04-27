@@ -42,13 +42,16 @@ class Model:
         start_time = time.time()
         if fetch_index:
             p_batch,q_batch,r_batch = file_fetcher.fetch_index(index)
+            p_batch = np.asarray(p_batch)
+            q_batch = np.asarray(q_batch)           
+            r_batch = np.asarray(r_batch)               
         for i in range(len(p_batch)):
 
      #       else:
-     #           p_batch,q_batch,r_batch = file_fetcher.fetch()           
-            p_in = p_batch[i].reshape(1,832)
-            q_in = q_batch[i].reshape(1,832)           
-            r_in = r_batch[i].reshape(1,832)               
+     #         --  p_batch,q_batch,r_batch = file_fetcher.fetch()           
+            p_in = p_batch[i].reshape(-1,832)
+            q_in = q_batch[i].reshape(-1,832)           
+            r_in = r_batch[i].reshape(-1,832)               
             feed_dict_train = {p:p_in,q:q_in,r:r_in}
             
             self.session.run(optimizer,feed_dict=feed_dict_train)
@@ -150,24 +153,21 @@ def gen_pqr_tuples(move_list_2d_curated,offset,elements,id_num):
         
     counter =0
     for i in range(offset,offset+elements):
-        all_states_encoded = []
         board = boardclass.ChessBoard(-1,only_board=True)
-        encoded_state = board.one_hot_encode_board()
-        all_states_encoded.append(encoded_state)
         for a_move in move_list_2d_curated[i]:
+ #           print(a_move)
+            p_board_encoded = board.one_hot_encode_board()
             r_board_encoded,board = encode_board_after_random_move(board)
             board.make_move(a_move)
-            encoded_state = board.one_hot_encode_board()
-            all_states_encoded.append(encoded_state)
+            q_board_encoded = board.one_hot_encode_board()
+            p.append(p_board_encoded)
+            q.append(q_board_encoded)
             r.append(r_board_encoded)
-
-            if not board.made_move: 
-                print("ERROR did not make move in gen_pqr_tupes")
-                return a_move_list
-        p.extend(all_states_encoded[:-1])
-        q.extend(all_states_encoded[1:])
-        
-     
+            #print(board.move_status,counter)
+#            if board.move_status == "did not make move":
+#                print("ERROR did not make move in gen_pqr_tupes")
+#                return a_move_list
+            
         counter = counter + 1
 #        if counter % 50 == 0:
 #            print("was here")
@@ -175,10 +175,7 @@ def gen_pqr_tuples(move_list_2d_curated,offset,elements,id_num):
 
     bin_file = open("pickled/pickled_train_data.bin{}".format(id_num),mode='wb+')
     pickle.dump([p,q,r],bin_file)
-       
-    print("{} is done now".format(id_num))
-#    return p,q,r
-            
+              
             
 def encode_board_after_random_move(b):
     moves = b.generate_legal_moves()
