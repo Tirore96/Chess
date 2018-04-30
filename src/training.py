@@ -4,16 +4,14 @@ import boardclass
 import random
 import time
 import numpy as np
-import pdb
-import os
-import pickle
-import glob
-from multiprocessing import Pool
-
+#Credit to Hvass Laboratories
 input_height = 32
 input_width = 26
 input_size = input_height * input_width
 num_squares = 8 *8 
+#x = tf.placeholder(tf.float32,[None,input_size])
+
+#y_true_cls = tf.argmax(y_true,axis=2)
 filter_size1 = 2
 num_filters1 = 3
 
@@ -23,6 +21,7 @@ last_connected_output = 2048
 
 fc_size = 128
 
+
 batch_size = 1
 learning_rate = 1e-5
 r_worse_than_q = 2
@@ -31,68 +30,64 @@ r_priority = k/2
 k_p = 20
 weights_val = 0.2
 bias_val = 0.5
+q_sign_const = 100
 
 class Model:
-    def __init__(self):
+    def __init__(self,path="model_final"):
         self.session = tf.Session()
-        self.session.run(tf.global_variables_initializer())
+        self.path = path
     
-    def run_session(self,file_fetcher,index=-1,fetch_index=False):
-        iterations = file_fetcher.max_id
-        start_time = time.time()
-        if fetch_index:
-            p_batch,q_batch,r_batch = file_fetcher.fetch_index(index)
-            p_batch = np.asarray(p_batch)
-            q_batch = np.asarray(q_batch)           
-            r_batch = np.asarray(r_batch)               
-        for i in range(len(p_batch)):
+    def run_session(self,iterations,train_data,batch_size):
+        with tf.Session(graph=graph1) as sess:
+            
+            sess.run(tf.global_variables_initializer())
+            start_time = time.time()
 
-     #       else:
-     #         --  p_batch,q_batch,r_batch = file_fetcher.fetch()           
-            p_in = p_batch[i].reshape(-1,832)
-            q_in = q_batch[i].reshape(-1,832)           
-            r_in = r_batch[i].reshape(-1,832)               
-            feed_dict_train = {p:p_in,q:q_in,r:r_in}
-            
-            self.session.run(optimizer,feed_dict=feed_dict_train)
-            
-            if 0 == i%100 :
-                score = self.session.run(p_val,feed_dict={p:p_in})
+            for i in range(iterations):
+                p_batch,q_batch,r_batch = train_data.next_batch(batch_size)
+                feed_dict_train = {p:p_batch,q:q_batch,r:r_batch}
+                
+                sess.run(optimizer,feed_dict=feed_dict_train)
+                
+                score = sess.run(p_val,feed_dict={p:p_batch})
                 print("score P: {}".format(score))
                 
-                score = self.session.run(q_val,feed_dict={q:q_in})
+                score = sess.run(q_val,feed_dict={q:q_batch})
                 print("score Q: {}".format(score))
                 
-                score = self.session.run(r_val,feed_dict={r:r_in})
+                score = sess.run(r_val,feed_dict={r:r_batch})
                 print("score R: {}".format(score))
+                #     
+               # score = sess.run(weights_1)
+               # print("score weights_1: {}".format(score))
+               # acc = sess.run(reduced_likelihood,feed_dict=feed_dict_train)*100
+               # print("Optimization Iteration {}, Training Accuracy {}".format(i,acc))#+ str(i) + " Training Accuracy "+str(acc)+"" + str(score))
+            end_time = time.time()
+            print("Time used " + str(end_time-start_time))
+            #optimize(iterations,train_data,batch_size,sess)
+            sess.run(tf.global_variables_initializer())
+            saver = tf.train.Saver()
+            path = saver.save(sess,self.path)
+            print("Model saved at {}".format(self.path))
+            sess.close()
 
-        end_time = time.time()
-        print("Time used to train model: " + str(end_time-start_time))
-        
-    def save(self,path):
-        #self.session.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
-        path_ret = saver.save(self.session,path)
-        print("Model saved at {}".format(path_ret))
+
+    def restore_model(self):
+        tf.reset_default_graph()
+        imported_meta = tf.train.import_meta_graph("model_final.meta")
+        imported_meta.restore(self.session,tf.train.latest_checkpoint("./"))
+        #self.session.run(p_val,feed_dict={p:np.array([0 for i in range(832)]).reshape(1,832)})
+#        saver = tf.train.Saver()
+#        with tf.Session as sess:
+#            saver.restore(sess,self.path)
+#            
+#        self.session = tf.Session()
+#        saver.restore(self.session,self.path)    
+#        self.session.run(tf.global_variables_initializer())
 
 
-    def restore(self,path):
-        self.session = tf.Session()
-        saver = tf.train.Saver()
-        saver.restore(self.session,path)
-        
-    def delete_model_files(self,folder_path,prefix):
-        os.remove("{}/checkpoint".format(folder_path))
-        extended_paths = "{0}/{1}*".format(folder_path,prefix)
-                
-        for filename in glob.glob(extended_paths):
-            os.remove(filename)
-
-            #.model_checkpoint_path
-            #imported_meta = tf.train.import_meta_graph(self.path)#"model_final.meta")
-            #imported_meta.restore(self.session,tf.train.latest_checkpoint("../"))
-    #
-    def evaluate(self,p_cur):
+    def evaluate(self,board):
+        p_cur = board.one_hot_encode_board()
         p_cur = p_cur.reshape((1,832))
         score = self.session.run(p_val,feed_dict={p:p_cur})
         return score
@@ -107,75 +102,46 @@ def new_weights(shape):
 def new_biases(length):
     return tf.Variable(tf.constant(bias_val,shape=[length]))
 
+
 def flatten_layer(layer):
     layer_shape = layer.get_shape()
     num_features = layer_shape[1:4].num_elements()
     layer_falt = tf.reshape(layer,[-1,num_features])
     return layer_falt, num_features
 
-
-def create_index_intervals(limit,split):
-    if limit < split:
-        return [(0,0)]
-    retarr = []
-    high_end = 0
-    offset = 0
-    pool_size = int(limit/split)
-    max_offset = pool_size * split
-    while offset < max_offset:
-        retarr.append((offset,pool_size))
-        offset = offset + pool_size
-    return retarr
-
-def gen_pqr_pool(path,limit,split):
-    move_list_2d_curated = boardclass.file_to_move_lists(path,groundtruth=True)
-    index_intervals = create_index_intervals(limit,split)
-    arr_inputs = [(move_list_2d_curated,index_intervals[i][0],index_intervals[i][1],i) for i in range(len(index_intervals))]
-    p = Pool()
-    retvals = p.starmap(gen_pqr_tuples,arr_inputs)
- #   p = []
- #   q = []
- #   r = []
- #   for i in retvals:
- #       p.append(i[0])
- #       q.append(i[1])       
- #       r.append(i[2])           
- #   return p,q,r
-
-def gen_pqr_tuples(move_list_2d_curated,offset,elements,id_num):
+def gen_pqr_tuples(path,limit=-1):
     p = []
     q = []
     r = []
 
+    move_list_2d_curated = boardclass.file_to_move_lists(path,groundtruth=True)
     curated_len = len(move_list_2d_curated)
-#    if limit == -1:
-#        limit = curated_len
+    if limit == -1:
+        limit = curated_len
         
     counter =0
-    for i in range(offset,offset+elements):
-        board = boardclass.ChessBoard(-1,only_board=True)
+    for i in range(limit):
+        board = boardclass.ChessBoard(-1)
         for a_move in move_list_2d_curated[i]:
  #           print(a_move)
             p_board_encoded = board.one_hot_encode_board()
-            r_board_encoded,board = encode_board_after_random_move(board)
+            r_board_encoded = encode_board_after_random_move(board)
             board.make_move(a_move)
             q_board_encoded = board.one_hot_encode_board()
             p.append(p_board_encoded)
             q.append(q_board_encoded)
             r.append(r_board_encoded)
             #print(board.move_status,counter)
-#            if board.move_status == "did not make move":
-#                print("ERROR did not make move in gen_pqr_tupes")
-#                return a_move_list
+            if board.move_status == "did not make move":
+                print("ERROR did not make move in gen_pqr_tupes")
+                return a_move_list
             
         counter = counter + 1
-#        if counter % 50 == 0:
-#            print("was here")
-#            print("{} out of {}".format(counter,limit))
-
-    bin_file = open("pickled/pickled_train_data.bin{}".format(id_num),mode='wb+')
-    pickle.dump([p,q,r],bin_file)
-              
+        if counter % 50 == 0:
+            print("{} out of {}".format(counter,limit))#str(counter) + " out of " + str(curated_len))
+            
+    return p,q,r
+            
             
 def encode_board_after_random_move(b):
     moves = b.generate_legal_moves()
@@ -184,7 +150,7 @@ def encode_board_after_random_move(b):
     b.make_move(moves[index])
     one_hot = b.one_hot_encode_board()
     b.unmake_move()
-    return one_hot,b
+    return one_hot
         
 
 def file_to_training_data(path):
@@ -236,39 +202,17 @@ class TrainingData:
             retval_y = self.train_y[self.index:self.index+size]       
             self.index = self.index + size
             return retval_x,retval_y
-
-class File_fetcher:
-    def __init__(self,prefix,max_id):
-        self.prefix = prefix
-        self.max_id = max_id
-        self.cur_id = -1 
-    
-    def fetch(self):
-        if self.cur_id +1 < self.max_id:
-            self.cur_id = self.cur_id = 1
-            bin_file = open(self.prefix+str(self.cur_id),mode='rb')
-            train_data = pickle.load(bin_file)
-            bin_file.close()
-            return train_data
-        else:
-            print("Out of bounds")
-            return []
-    def fetch_index(self,index):
-            bin_file = open(self.prefix+str(index),mode='rb')
-            train_data = pickle.load(bin_file)
-            bin_file.close()
-            return train_data
-    
-    def set_lastcount(self,id_num):
-        self.cur_id = id_num
-    
-    
+        
 class TrainingData_PQR:
     def __init__(self,path,limit=-1):
         p,q,r = gen_pqr_tuples(path,limit)
         self.p = np.asarray(p,dtype=np.float32).reshape((-1,832))
         self.q = np.asarray(q,dtype=np.float32).reshape((-1,832))
         self.r = np.asarray(r,dtype=np.float32).reshape((-1,832))       
+#        self.x_shape = self.train_x.shape
+#        self.y_shape = self.train_y.shape       
+#        self.x_dtype = self.train_x.dtype
+#        self.y_dtype = self.train_y.dtype
         self.index  = 0
         self.len = len(self.p)
         if len(self.p) != len(self.q) or len(self.q) != len(self.r):
@@ -285,21 +229,6 @@ class TrainingData_PQR:
             return retval_p,retval_q,retval_r        
 
 
-weights_1 = new_weights(shape=[input_size,input_size])
-biases_1  = new_weights(shape=[batch_size,input_size])
-
-weights_2 = new_weights(shape=[input_size,input_size])
-biases_2  = new_weights(shape=[batch_size,input_size])
-
-weights_3 = new_weights(shape=[input_size,last_connected_output])
-biases_3  = new_weights(shape=[batch_size,last_connected_output])
-
-weights_4 = new_weights(shape=[last_connected_output,1])
-biases_4  = new_weights(shape=[batch_size])
-
-weights = [weights_1,weights_2,weights_3,weights_4]
-biases  = [biases_1,biases_2,biases_3,biases_4]
-
 def matmul_input(input, weights,biases,input_size,last_connected_output,use_RELU=False):
     retval,features = flatten_layer(input)
     for i in range(4):
@@ -309,28 +238,56 @@ def matmul_input(input, weights,biases,input_size,last_connected_output,use_RELU
             retval = tf.nn.relu(retval)
 
     return retval
-        
-p = tf.placeholder(tf.float32,[None,input_size])
-q = tf.placeholder(tf.float32,[None,input_size])
-r = tf.placeholder(tf.float32,[None,input_size])
+               
+graph1 = tf.Graph()
+with graph1.as_default():
+    
+    weights_1 = new_weights(shape=[input_size,input_size])
+    biases_1  = new_weights(shape=[batch_size,input_size])
+    
+    weights_2 = new_weights(shape=[input_size,input_size])
+    biases_2  = new_weights(shape=[batch_size,input_size])
+    
+    weights_3 = new_weights(shape=[input_size,last_connected_output])
+    biases_3  = new_weights(shape=[batch_size,last_connected_output])
+    
+    weights_4 = new_weights(shape=[last_connected_output,1])
+    biases_4  = new_weights(shape=[batch_size])
+    
+    
+    weights = [weights_1,weights_2,weights_3,weights_4]
+    biases  = [biases_1,biases_2,biases_3,biases_4]
 
-p_input = tf.reshape(p,[-1,input_height,input_width,1])
-q_input = tf.reshape(q,[-1,input_height,input_width,1])
-r_input = tf.reshape(r,[-1,input_height,input_width,1])
 
-p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)  
-q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
-r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
-print(p_val)
+    p = tf.placeholder(tf.float32,[None,input_size])
+    q = tf.placeholder(tf.float32,[None,input_size])
+    r = tf.placeholder(tf.float32,[None,input_size])
+    
+    p_input = tf.reshape(p,[-1,input_height,input_width,1])
+    q_input = tf.reshape(q,[-1,input_height,input_width,1])
+    r_input = tf.reshape(r,[-1,input_height,input_width,1])
+    
+    p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)  
+    q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
+    r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
+    
+    #(q_val-p_val): q_val optimized to be negative, p_val optimized to be positive
+    #k*tf.square(q_val + p_val): p_val = -q_val. with q_val as negative and p_val as positive, minimize the squared sum.
+    #k*tf.square(q_val - r_val*r_worse_than_q): adjust r_val to be half of what q_val is (since r_val should be is less negative than q_val
+    
+    likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) + tf.sign(q_val) * q_sign_const
+    
+    #tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
+    reduced_likelihood = tf.reduce_sum(likelihood)
+    reduced_neg_likelihood = tf.negative(reduced_likelihood)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
 
-likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
-
-#tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
-reduced_likelihood = tf.reduce_sum(likelihood)
-reduced_neg_likelihood = tf.negative(reduced_likelihood)
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
-#neg_likelihood = 10 * tf.square(p_val-q_val) + q_val# tf.sigmoid(p_val) + tf.sigmoid(p_val) + tf.square(p_val-q_val)#10*tf.sigmoid(q_val- p_val)* tf.sigmoid(tf.square(q_val)*tf.square( p_val))# - p_val + q_val#(q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
-#
-#
-#reduced_neg_likelihood = tf.reduce_sum(neg_likelihood)
-#optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_neg_likelihood)
+#def run_session(iterations,train_data,batch_size):
+#    session = tf.Session()
+#    session.run(tf.global_variables_initializer())
+#    optimize(iterations,train_data,batch_size,session)
+#    saver = tf.train.Saver()
+#    path = saver.save(session,"/tmp/model.ckpt")
+#    print("Model saved at {}".format(path))
+#    session.close()
+#    return 
