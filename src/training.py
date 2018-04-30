@@ -121,7 +121,7 @@ def gen_pqr_tuples(path,limit=-1):
         
     counter =0
     for i in range(limit):
-        board = boardclass.ChessBoard(-1)
+        board = boardclass.ChessBoard(-1,only_board=True)
         for a_move in move_list_2d_curated[i]:
  #           print(a_move)
             p_board_encoded = board.one_hot_encode_board()
@@ -132,9 +132,8 @@ def gen_pqr_tuples(path,limit=-1):
             q.append(q_board_encoded)
             r.append(r_board_encoded)
             #print(board.move_status,counter)
-            if board.move_status == "did not make move":
-                print("ERROR did not make move in gen_pqr_tupes")
-                return a_move_list
+#            print("ERROR did not make move in gen_pqr_tupes")
+#            return []
             
         counter = counter + 1
         if counter % 50 == 0:
