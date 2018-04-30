@@ -30,6 +30,7 @@ r_priority = k/2
 k_p = 20
 weights_val = 0.2
 bias_val = 0.5
+q_sign_const = 100
 
 class Model:
     def __init__(self,path="model_final"):
@@ -37,7 +38,7 @@ class Model:
         self.path = path
     
     def run_session(self,iterations,train_data,batch_size):
-        with tf.Session() as sess:
+        with tf.Session(graph=graph1) as sess:
             
             sess.run(tf.global_variables_initializer())
             start_time = time.time()
@@ -48,14 +49,14 @@ class Model:
                 
                 sess.run(optimizer,feed_dict=feed_dict_train)
                 
-               # score = sess.run(p_val,feed_dict={p:p_batch})
-               # print("score P: {}".format(score))
-               # 
-               # score = sess.run(q_val,feed_dict={q:q_batch})
-               # print("score Q: {}".format(score))
-               # 
-               # score = sess.run(r_val,feed_dict={r:r_batch})
-               # print("score R: {}".format(score))
+                score = sess.run(p_val,feed_dict={p:p_batch})
+                print("score P: {}".format(score))
+                
+                score = sess.run(q_val,feed_dict={q:q_batch})
+                print("score Q: {}".format(score))
+                
+                score = sess.run(r_val,feed_dict={r:r_batch})
+                print("score R: {}".format(score))
                 #     
                # score = sess.run(weights_1)
                # print("score weights_1: {}".format(score))
@@ -228,24 +229,6 @@ class TrainingData_PQR:
             return retval_p,retval_q,retval_r        
 
 
-
-
-weights_1 = new_weights(shape=[input_size,input_size])
-biases_1  = new_weights(shape=[batch_size,input_size])
-
-weights_2 = new_weights(shape=[input_size,input_size])
-biases_2  = new_weights(shape=[batch_size,input_size])
-
-weights_3 = new_weights(shape=[input_size,last_connected_output])
-biases_3  = new_weights(shape=[batch_size,last_connected_output])
-
-weights_4 = new_weights(shape=[last_connected_output,1])
-biases_4  = new_weights(shape=[batch_size])
-
-
-weights = [weights_1,weights_2,weights_3,weights_4]
-biases  = [biases_1,biases_2,biases_3,biases_4]
-
 def matmul_input(input, weights,biases,input_size,last_connected_output,use_RELU=False):
     retval,features = flatten_layer(input)
     for i in range(4):
@@ -255,29 +238,49 @@ def matmul_input(input, weights,biases,input_size,last_connected_output,use_RELU
             retval = tf.nn.relu(retval)
 
     return retval
-        
-p = tf.placeholder(tf.float32,[None,input_size])
-q = tf.placeholder(tf.float32,[None,input_size])
-r = tf.placeholder(tf.float32,[None,input_size])
+               
+graph1 = tf.Graph()
+with graph1.as_default():
+    
+    weights_1 = new_weights(shape=[input_size,input_size])
+    biases_1  = new_weights(shape=[batch_size,input_size])
+    
+    weights_2 = new_weights(shape=[input_size,input_size])
+    biases_2  = new_weights(shape=[batch_size,input_size])
+    
+    weights_3 = new_weights(shape=[input_size,last_connected_output])
+    biases_3  = new_weights(shape=[batch_size,last_connected_output])
+    
+    weights_4 = new_weights(shape=[last_connected_output,1])
+    biases_4  = new_weights(shape=[batch_size])
+    
+    
+    weights = [weights_1,weights_2,weights_3,weights_4]
+    biases  = [biases_1,biases_2,biases_3,biases_4]
 
-p_input = tf.reshape(p,[-1,input_height,input_width,1])
-q_input = tf.reshape(q,[-1,input_height,input_width,1])
-r_input = tf.reshape(r,[-1,input_height,input_width,1])
 
-p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)  
-q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
-r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
-
-#(q_val-p_val): q_val optimized to be negative, p_val optimized to be positive
-#k*tf.square(q_val + p_val): p_val = -q_val. with q_val as negative and p_val as positive, minimize the squared sum.
-#k*tf.square(q_val - r_val*r_worse_than_q): adjust r_val to be half of what q_val is (since r_val should be is less negative than q_val
-
-likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) 
-
-#tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
-reduced_likelihood = tf.reduce_sum(likelihood)
-reduced_neg_likelihood = tf.negative(reduced_likelihood)
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
+    p = tf.placeholder(tf.float32,[None,input_size])
+    q = tf.placeholder(tf.float32,[None,input_size])
+    r = tf.placeholder(tf.float32,[None,input_size])
+    
+    p_input = tf.reshape(p,[-1,input_height,input_width,1])
+    q_input = tf.reshape(q,[-1,input_height,input_width,1])
+    r_input = tf.reshape(r,[-1,input_height,input_width,1])
+    
+    p_val = matmul_input(p_input,weights,biases,input_size,last_connected_output)  
+    q_val = matmul_input(q_input,weights,biases,input_size,last_connected_output)        
+    r_val = matmul_input(r_input,weights,biases,input_size,last_connected_output)        
+    
+    #(q_val-p_val): q_val optimized to be negative, p_val optimized to be positive
+    #k*tf.square(q_val + p_val): p_val = -q_val. with q_val as negative and p_val as positive, minimize the squared sum.
+    #k*tf.square(q_val - r_val*r_worse_than_q): adjust r_val to be half of what q_val is (since r_val should be is less negative than q_val
+    
+    likelihood = (q_val-p_val) + k*tf.square(q_val + p_val) + r_priority*tf.square(q_val - r_val*r_worse_than_q) + tf.sign(q_val) * q_sign_const
+    
+    #tf.log(q_val)#k*tf.sigmoid(q_val+r_val) - k*tf.sigmoid(tf.abs(q_val-r_val))  + k*tf.log((tf.abs(p_val + q_val))) - k_p*tf.sigmoid(p_val*p_val*p_val) #+ k*tf.abs(p_val*q_val*r_val)#- tf.log(p_val * constrain)#tf.log(tf.sigmoid(q_val-r_val)) + k * tf.log(p_val + q_val) + k*tf.sigmoid(-q_val-p_val) #d
+    reduced_likelihood = tf.reduce_sum(likelihood)
+    reduced_neg_likelihood = tf.negative(reduced_likelihood)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(reduced_likelihood)
 
 #def run_session(iterations,train_data,batch_size):
 #    session = tf.Session()
