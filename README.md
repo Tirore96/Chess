@@ -21,6 +21,4 @@ This encapsulates the functions in boardlib.pyx into a ChessBoard class.
 After cloning this repository, open Chess.ipynb. Run all cells. In the output of the last cell, a board is printed. You are black, and you enter a move by using algebraic notation. For example you can move your left-most pawn by two squares with a2a4. Finish by pressing enter. To signal the chess engine to make a move, press enter again.
 
 # Dependencies?
-Cython (Is included in Anaconda)
-tensorflow
-python-chess
+Cython (Is included in Anaconda), tensorflow and python-chess.
