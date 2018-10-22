@@ -1,5 +1,5 @@
 # Chess
-The purpose of this project, is to build a chess engine and see how well it does. The project is comprised of:
+The purpose of this project, is to build a chess engine and see how well it does. The GUI comes from Python's Chess module, but the backend, namely move-evaluation and move-generation is what I have tried to tackle. The project is comprised of:
 
 # training.py 
 Here you find the tensorflow model and you can tweak parameters such as learningrate and other constants.
@@ -19,3 +19,5 @@ This encapsulates the functions in boardlib.pyx into a ChessBoard class.
 
 # How to run it?
 After cloning this repository, open Chess.ipynb. Run all cells. In the output of the last cell, a board is printed. You are black, and you enter a move by using algebraic notation. For example you can move your left-most pawn by two squares with a2a4. Finish by pressing enter. To signal the chess engine to make a move, press enter again.
+
+# Dependencies?
